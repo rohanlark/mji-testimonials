@@ -1,0 +1,127 @@
+.app {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.app-header {
+  background: #fff;
+  padding: 2rem;
+  border-bottom: 1px solid #e0e0e0;
+  text-align: center;
+}
+
+.app-header h1 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.app-header p {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.app-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.input-section {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.input-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.input-header h2 {
+  font-size: 1.25rem;
+  color: #333;
+}
+
+.sample-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.sample-buttons button {
+  padding: 0.5rem 1rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.sample-buttons button:hover {
+  background: #0056b3;
+}
+
+.input-textarea {
+  width: 100%;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.875rem;
+  resize: vertical;
+}
+
+.errors-section {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.errors-section h3 {
+  color: #856404;
+  margin-bottom: 1rem;
+}
+
+.errors-section ul {
+  list-style: none;
+}
+
+.error-item {
+  padding: 0.5rem;
+  background: #fff;
+  margin-bottom: 0.5rem;
+  border-radius: 4px;
+  color: #856404;
+  font-family: 'Courier New', monospace;
+  font-size: 0.875rem;
+}
+
+.renderer-section {
+  background: #fff;
+  border-radius: 8px;
+  padding: 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-top: 2rem;
+}
+
+.empty-state-section {
+  background: #fff;
+  border-radius: 8px;
+  padding: 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-top: 2rem;
+}
+
+.empty-state {
+  color: #666;
+  font-style: italic;
+  padding: 2rem;
+  text-align: center;
+}
