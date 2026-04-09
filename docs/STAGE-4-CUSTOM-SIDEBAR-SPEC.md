@@ -9,7 +9,7 @@
 ## Scope (v1)
 
 ### 1. Layout controls
-- Dropdown or tabs: **Inline** | **Grid**
+- Dropdown or tabs: **Stack** | **Grid**
 
 ### 2. Quote list
 - **Sortable** with @dnd-kit (reorder quotes)

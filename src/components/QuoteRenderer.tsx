@@ -1,190 +1,386 @@
-import { useRef } from 'react';
+import { useState, useRef } from 'react';
 import { CSSProperties } from 'react';
-import { useControls, button } from 'leva';
-import { Testimonial, LayoutMode, ExportFormat, MetadataToggles, MetadataOrder, GridSizeOverride } from '../types/testimonial';
-import { InlineQuote } from './InlineQuote';
+import {
+  Testimonial,
+  LayoutMode,
+  MetadataToggles,
+  MetadataFieldKey,
+  DEFAULT_METADATA_ORDER,
+  DEFAULT_METADATA_TOGGLES,
+  GridSizeOverride,
+  QuoteFontScaleOverride,
+  GridDimensions,
+  GridAspectRatio,
+} from '../types/testimonial';
 import { GridQuote } from './GridQuote';
-import { calculateGridLayout } from '../lib/gridLayout';
+import { Sidebar } from './Sidebar';
+import { QuoteEditModal } from './QuoteEditModal';
+import {
+  calculateGridLayout,
+  calculateGridRows,
+  sortPlacementsReadingOrder,
+  countVacantUnitCells,
+} from '../lib/gridLayout';
+import { normalizeQuoteForLayout } from '../lib/quoteNormalize';
 import { exportToSVG, generateEmbedCode, downloadFile, copyToClipboard } from '../lib/exportUtils';
+
+export interface TestimonialPreviewProps {
+  testimonials: Testimonial[];
+  layoutMode: LayoutMode;
+  metadataToggles: MetadataToggles;
+  metadataOrder: MetadataFieldKey[];
+  gridDimensions?: GridDimensions;
+  gridSizeOverrides: Record<string, GridSizeOverride>;
+  fontScaleOverrides?: Record<string, QuoteFontScaleOverride>;
+  selectedQuoteId?: string | null;
+  onSelectQuote?: (id: string | null) => void;
+  onUpdateTestimonial?: (id: string, partial: Partial<Testimonial>) => void;
+  /** Open the quote editor modal (e.g. double-click a card). Same for grid and stack. */
+  onRequestEditQuote?: (id: string) => void;
+  /** When true, draw faint column/row guides (track boundaries) behind the grid. */
+  showGridLines?: boolean;
+}
+
+/** Renders only the testimonial preview (stack or grid). Used when layout is main | sidebar. */
+export function TestimonialPreview({
+  testimonials,
+  layoutMode,
+  metadataToggles,
+  metadataOrder,
+  gridDimensions = { columns: 3, rows: 3 },
+  gridSizeOverrides,
+  fontScaleOverrides = {},
+  selectedQuoteId,
+  onSelectQuote,
+  onUpdateTestimonial,
+  onRequestEditQuote,
+  showGridLines = false,
+}: TestimonialPreviewProps) {
+  const placements =
+    layoutMode === 'grid'
+      ? calculateGridLayout(
+          testimonials,
+          gridDimensions.columns,
+          gridSizeOverrides,
+          gridDimensions.rows
+        )
+      : [];
+
+  if (layoutMode === 'stack') {
+    return (
+      <div className="testimonial-stack">
+        {testimonials.map((testimonial) => (
+          <GridQuote
+            key={testimonial.id}
+            testimonial={testimonial}
+            rowSpan={1}
+            colSpan={1}
+            metadataToggles={metadataToggles}
+            metadataOrder={metadataOrder}
+            onUpdateTestimonial={onUpdateTestimonial}
+            onRequestEdit={onUpdateTestimonial ? onRequestEditQuote : undefined}
+            fontScaleOverride={fontScaleOverrides[testimonial.id]}
+            onSelect={
+              onSelectQuote
+                ? () =>
+                    onSelectQuote(selectedQuoteId === testimonial.id ? null : testimonial.id)
+                : undefined
+            }
+            isSelected={selectedQuoteId === testimonial.id}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  try {
+    const rowCount = placements.length === 0 ? 1 : calculateGridRows(placements);
+    const cols = gridDimensions.columns;
+    const trackOverlayStyle: CSSProperties = {
+      display: 'grid',
+      gridTemplateColumns: 'subgrid',
+      gridTemplateRows: 'subgrid',
+      gridColumn: '1 / -1',
+      gridRow: '1 / -1',
+      pointerEvents: 'none',
+      zIndex: 0,
+      minWidth: 0,
+      minHeight: 0,
+    };
+
+    const gridContainerStyle: CSSProperties = {
+      display: 'grid',
+      gridTemplateColumns: `repeat(${cols}, 1fr)`,
+      // Auto-growing rows: content sets height; floor keeps rhythm (preview may scroll inside aspect wrapper).
+      gridTemplateRows: `repeat(${rowCount}, minmax(6rem, auto))`,
+      gap: '1rem',
+      width: '100%',
+      minHeight: 0,
+      alignContent: 'start',
+    };
+
+    return (
+      <div
+        className={showGridLines ? 'testimonial-grid testimonial-grid--lines' : 'testimonial-grid'}
+        style={gridContainerStyle}
+      >
+        {showGridLines ? (
+          <div className="testimonial-grid__track-overlay" style={trackOverlayStyle} aria-hidden>
+            {Array.from({ length: rowCount * cols }, (_, i) => {
+              const col = i % cols;
+              const row = Math.floor(i / cols);
+              return (
+                <div
+                  key={i}
+                  className="testimonial-grid__track-cell"
+                  style={{
+                    borderRight:
+                      col < cols - 1 ? '1px solid rgba(0, 0, 0, 0.14)' : undefined,
+                    borderBottom:
+                      row < rowCount - 1 ? '1px solid rgba(0, 0, 0, 0.14)' : undefined,
+                  }}
+                />
+              );
+            })}
+          </div>
+        ) : null}
+        {placements.map((placement) => (
+          <GridQuote
+            key={placement.testimonial.id}
+            testimonial={placement.testimonial}
+            gridRow={placement.gridRow}
+            gridColumn={placement.gridColumn}
+            rowSpan={placement.rowSpan}
+            colSpan={placement.colSpan}
+            metadataToggles={metadataToggles}
+            metadataOrder={metadataOrder}
+            onUpdateTestimonial={onUpdateTestimonial}
+            onRequestEdit={onUpdateTestimonial ? onRequestEditQuote : undefined}
+            fontScaleOverride={fontScaleOverrides[placement.testimonial.id]}
+            onSelect={
+              onSelectQuote
+                ? () =>
+                    onSelectQuote(
+                      selectedQuoteId === placement.testimonial.id
+                        ? null
+                        : placement.testimonial.id
+                    )
+                : undefined
+            }
+            isSelected={selectedQuoteId === placement.testimonial.id}
+          />
+        ))}
+      </div>
+    );
+  } catch (error) {
+    console.error('Grid layout error:', error);
+    return <div>Error rendering grid layout</div>;
+  }
+}
 
 interface QuoteRendererProps {
   testimonials: Testimonial[];
+  onReorderQuotes?: (newOrder: Testimonial[]) => void;
+  onUpdateTestimonial?: (id: string, partial: Partial<Testimonial>) => void;
 }
 
-export function QuoteRenderer({ testimonials }: QuoteRendererProps) {
+export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimonial }: QuoteRendererProps) {
   const renderContainerRef = useRef<HTMLDivElement>(null);
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>('grid');
+  const [metadataToggles, setMetadataToggles] = useState<MetadataToggles>(DEFAULT_METADATA_TOGGLES);
+  const [metadataOrder, setMetadataOrder] = useState<MetadataFieldKey[]>([...DEFAULT_METADATA_ORDER]);
+  const [gridSizeOverrides, setGridSizeOverrides] = useState<Record<string, GridSizeOverride>>({});
+  const [fontScaleOverrides, setFontScaleOverrides] = useState<Record<string, QuoteFontScaleOverride>>({});
+  const [gridAspectRatio, setGridAspectRatio] = useState<GridAspectRatio>('fit');
+  const [gridAspectRatioFlipped, setGridAspectRatioFlipped] = useState(false);
+  const [gridDimensions, setGridDimensions] = useState<GridDimensions>({ columns: 3, rows: 3 });
+  const [showGridLines, setShowGridLines] = useState(false);
+  const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
+  const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
 
-  const gridSizeOptions: GridSizeOverride[] = ['auto', '1x1', '1x2', '2x1', '2x2', '3x1', '3x2', '4x1', '4x2'];
-  const gridSizeControlSchema = testimonials.length > 0
-    ? testimonials.reduce(
-        (acc, _, i) => {
-          acc[`Quote ${i + 1}`] = { value: 'auto' as GridSizeOverride, options: gridSizeOptions };
-          return acc;
-        },
-        {} as Record<string, { value: GridSizeOverride; options: GridSizeOverride[] }>
-      )
-    : {};
-  const gridSizeControls = useControls('Grid Size', gridSizeControlSchema);
+  const editingTestimonial =
+    editingQuoteId !== null ? testimonials.find((t) => t.id === editingQuoteId) ?? null : null;
 
-  const {
-    layoutMode,
-    exportFormat,
-    showYear,
-    showCountry,
-    showAge,
-    showState,
-    showVisa,
-    showOccupation,
-    orderYear,
-    orderCountry,
-    orderAge,
-    orderState,
-    orderVisa,
-    orderOccupation,
-  } = useControls('Layout & metadata', {
-    layoutMode: {
-      value: 'inline' as LayoutMode,
-      options: ['inline', 'grid'],
-    },
-    exportFormat: {
-      value: 'svg' as ExportFormat,
-      options: ['svg', 'embed'],
-    },
-    showYear: { value: true, label: 'Year' },
-    showCountry: { value: true, label: 'Country' },
-    showAge: { value: true, label: 'Age' },
-    showState: { value: true, label: 'State' },
-    showVisa: { value: true, label: 'Visa' },
-    showOccupation: { value: true, label: 'Occupation' },
-    orderYear: { value: 1, min: 1, max: 6, step: 1, label: 'Order: Year' },
-    orderCountry: { value: 2, min: 1, max: 6, step: 1, label: 'Order: Country' },
-    orderAge: { value: 3, min: 1, max: 6, step: 1, label: 'Order: Age' },
-    orderState: { value: 4, min: 1, max: 6, step: 1, label: 'Order: State' },
-    orderVisa: { value: 5, min: 1, max: 6, step: 1, label: 'Order: Visa' },
-    orderOccupation: { value: 6, min: 1, max: 6, step: 1, label: 'Order: Occupation' },
-  });
-
-  const metadataToggles: MetadataToggles = {
-    showYear,
-    showCountry,
-    showAge,
-    showState,
-    showVisa,
-    showOccupation,
+  const setGridSizeOverride = (testimonialId: string, size: GridSizeOverride) => {
+    setGridSizeOverrides((prev) => {
+      if (size === 'auto') {
+        const next = { ...prev };
+        delete next[testimonialId];
+        return next;
+      }
+      return { ...prev, [testimonialId]: size };
+    });
   };
 
-  const metadataOrder: MetadataOrder = {
-    orderYear,
-    orderCountry,
-    orderAge,
-    orderState,
-    orderVisa,
-    orderOccupation,
+  const setFontScaleOverride = (testimonialId: string, scale: QuoteFontScaleOverride) => {
+    setFontScaleOverrides((prev) => {
+      if (scale === 'auto') {
+        const next = { ...prev };
+        delete next[testimonialId];
+        return next;
+      }
+      return { ...prev, [testimonialId]: scale };
+    });
   };
 
-  const gridSizeOverrides: Record<string, GridSizeOverride> = {};
-  testimonials.forEach((t, i) => {
-    const v = gridSizeControls[`Quote ${i + 1}`];
-    if (v && v !== 'auto') gridSizeOverrides[t.id] = v;
-  });
+  const setMetadataToggle = (field: keyof MetadataToggles, value: boolean) => {
+    setMetadataToggles((prev) => ({ ...prev, [field]: value }));
+  };
 
-  const placements = layoutMode === 'grid' ? calculateGridLayout(testimonials, 4, gridSizeOverrides) : [];
+  const placements =
+    layoutMode === 'grid'
+      ? calculateGridLayout(
+          testimonials,
+          gridDimensions.columns,
+          gridSizeOverrides,
+          gridDimensions.rows
+        )
+      : [];
+  const readingOrderPlacements = sortPlacementsReadingOrder(placements);
+  const sidebarQuoteIndex = (testimonialId: string) =>
+    readingOrderPlacements.findIndex((p) => p.testimonial.id === testimonialId) + 1;
 
-  const smallCellPlacements = placements.filter(
-    (p) =>
-      p.testimonial.quote.length > 600 &&
+  const smallCellPlacements = placements.filter((p) => {
+    const len = normalizeQuoteForLayout(p.testimonial.quote).length;
+    return (
+      len > 600 &&
       ((p.rowSpan === 1 && p.colSpan <= 2) || (p.rowSpan <= 2 && p.colSpan === 1))
-  );
+    );
+  });
   const readabilityWarning =
     smallCellPlacements.length > 0
-      ? `Quotes ${smallCellPlacements.map((p) => testimonials.indexOf(p.testimonial) + 1).join(', ')} may be difficult to read at this size.`
+      ? `Quotes ${smallCellPlacements.map((p) => sidebarQuoteIndex(p.testimonial.id)).join(', ')} are long for their cell size. Shorten the quote, or increase the grid size / font scale for those rows in the sidebar.`
       : '';
 
-  useControls('Readability', () => ({
-    '⚠️ Warning': { value: readabilityWarning },
-  }));
+  const vacantCells =
+    layoutMode === 'grid' && placements.length > 0
+      ? countVacantUnitCells(placements, gridDimensions.columns)
+      : 0;
+  const gridVacancyWarning =
+    vacantCells > 0
+      ? `${vacantCells} empty grid cell${vacantCells === 1 ? '' : 's'} (first-fit packing can’t always tessellate). Reorder quotes or change cell sizes to reduce gaps.`
+      : '';
 
-  // Export controls registered last so they appear at bottom of Leva panel
-  useControls('Export', {
-    'Export SVG': button(async () => {
-      if (!renderContainerRef.current) {
-        alert('No content to export');
-        return;
-      }
-      try {
-        const svgString = await exportToSVG(renderContainerRef.current, testimonials, layoutMode);
-        downloadFile(svgString, 'testimonials.svg', 'image/svg+xml');
-      } catch (error) {
-        alert('Failed to export SVG: ' + (error instanceof Error ? error.message : 'Unknown error'));
-      }
-    }),
-    'Copy Embed Code': button(async () => {
-      try {
-        const embedCode = generateEmbedCode(testimonials, layoutMode);
-        await copyToClipboard(embedCode);
-        alert('Embed code copied to clipboard!');
-      } catch (error) {
-        alert('Failed to generate embed code: ' + (error instanceof Error ? error.message : 'Unknown error'));
-      }
-    }),
-    'Download HTML': button(() => {
-      const embedCode = generateEmbedCode(testimonials, layoutMode);
-      downloadFile(embedCode, 'testimonials.html', 'text/html');
-    }),
-  });
+  const handleExportSVG = async () => {
+    if (!renderContainerRef.current) {
+      alert('No content to export');
+      return;
+    }
+    try {
+      const svgString = await exportToSVG(renderContainerRef.current, testimonials, layoutMode);
+      downloadFile(svgString, 'testimonials.svg', 'image/svg+xml');
+    } catch (error) {
+      alert('Failed to export SVG: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  };
+
+  const handleCopyEmbed = async () => {
+    try {
+      const embedCode = generateEmbedCode(
+        testimonials,
+        layoutMode,
+        gridDimensions,
+        gridSizeOverrides,
+        fontScaleOverrides
+      );
+      await copyToClipboard(embedCode);
+      alert('Embed code copied to clipboard!');
+    } catch (error) {
+      alert('Failed to generate embed code: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  };
+
+  const handleDownloadHTML = () => {
+    const embedCode = generateEmbedCode(
+      testimonials,
+      layoutMode,
+      gridDimensions,
+      gridSizeOverrides,
+      fontScaleOverrides
+    );
+    downloadFile(embedCode, 'testimonials.html', 'text/html');
+  };
+
+  const handleReorderQuotes = onReorderQuotes ?? (() => {});
+  const shuffleQuotes = () => {
+    const shuffled = [...testimonials].sort(() => Math.random() - 0.5);
+    handleReorderQuotes(shuffled);
+  };
 
   if (testimonials.length === 0) {
     return <div>No testimonials to display</div>;
   }
 
   return (
-    <>
-      <div ref={renderContainerRef}>
-        {layoutMode === 'inline' ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            {testimonials.map((testimonial) => (
-              <InlineQuote 
-                key={testimonial.id} 
-                testimonial={testimonial} 
-                metadataToggles={metadataToggles}
-                metadataOrder={metadataOrder}
-              />
-            ))}
-          </div>
-        ) : (
-          (() => {
-            try {
-              const gridContainerStyle: CSSProperties = {
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gridAutoRows: 'auto',
-                gap: '1rem',
-                width: '100%',
-              };
-
-              return (
-                <div style={gridContainerStyle}>
-                  {placements.map((placement) => (
-                    <GridQuote
-                      key={placement.testimonial.id}
-                      testimonial={placement.testimonial}
-                      gridRow={placement.gridRow}
-                      gridColumn={placement.gridColumn}
-                      rowSpan={placement.rowSpan}
-                      colSpan={placement.colSpan}
-                      metadataToggles={metadataToggles}
-                      metadataOrder={metadataOrder}
-                    />
-                  ))}
-                </div>
-              );
-            } catch (error) {
-              console.error('Grid layout error:', error);
-              return <div>Error rendering grid layout</div>;
-            }
-          })()
-        )}
+    <div className="renderer-with-sidebar">
+      <div
+        ref={renderContainerRef}
+        className="renderer-preview"
+        onClick={(e) => {
+          if ((e.target as HTMLElement).closest('.grid-quote')) return;
+          setSelectedQuoteId(null);
+        }}
+      >
+        <TestimonialPreview
+          testimonials={testimonials}
+          layoutMode={layoutMode}
+          metadataToggles={metadataToggles}
+          metadataOrder={metadataOrder}
+          gridDimensions={gridDimensions}
+          gridSizeOverrides={gridSizeOverrides}
+          fontScaleOverrides={fontScaleOverrides}
+          selectedQuoteId={selectedQuoteId}
+          onSelectQuote={setSelectedQuoteId}
+          onUpdateTestimonial={onUpdateTestimonial}
+          onRequestEditQuote={onUpdateTestimonial ? (id) => setEditingQuoteId(id) : undefined}
+          showGridLines={showGridLines}
+        />
       </div>
-    </>
+      {onUpdateTestimonial ? (
+        <QuoteEditModal
+          testimonial={editingTestimonial}
+          open={editingQuoteId !== null}
+          onClose={() => setEditingQuoteId(null)}
+          onSave={(id, partial) => onUpdateTestimonial(id, partial)}
+        />
+      ) : null}
+      <Sidebar
+        layoutMode={layoutMode}
+        setLayoutMode={setLayoutMode}
+        gridAspectRatio={gridAspectRatio}
+        setGridAspectRatio={setGridAspectRatio}
+        gridAspectRatioFlipped={gridAspectRatioFlipped}
+        setGridAspectRatioFlipped={setGridAspectRatioFlipped}
+        gridDimensions={gridDimensions}
+        setGridDimensions={setGridDimensions}
+        testimonials={testimonials}
+        onReorderQuotes={handleReorderQuotes}
+        onShuffleQuotes={shuffleQuotes}
+        gridSizeOverrides={gridSizeOverrides}
+        setGridSizeOverride={setGridSizeOverride}
+        fontScaleOverrides={fontScaleOverrides}
+        setFontScaleOverride={setFontScaleOverride}
+        selectedQuoteId={selectedQuoteId}
+        onSelectQuote={setSelectedQuoteId}
+        onEditSelectedQuote={
+          onUpdateTestimonial
+            ? () => {
+                if (selectedQuoteId) setEditingQuoteId(selectedQuoteId);
+              }
+            : undefined
+        }
+        metadataOrder={metadataOrder}
+        setMetadataOrder={setMetadataOrder}
+        metadataToggles={metadataToggles}
+        setMetadataToggle={setMetadataToggle}
+        readabilityWarning={readabilityWarning}
+        gridVacancyWarning={gridVacancyWarning}
+        showGridLines={showGridLines}
+        setShowGridLines={setShowGridLines}
+        onExportSVG={handleExportSVG}
+        onCopyEmbed={handleCopyEmbed}
+        onDownloadHTML={handleDownloadHTML}
+      />
+    </div>
   );
 }

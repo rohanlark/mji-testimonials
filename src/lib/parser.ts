@@ -1,4 +1,6 @@
 import { Testimonial } from '../types/testimonial';
+import { normalizeAgeValue } from './metadataNormalize';
+import { normalizeQuoteForLayout } from './quoteNormalize';
 
 export interface ParseResult {
   testimonials: Testimonial[];
@@ -79,29 +81,6 @@ function parseCSVLine(line: string): string[] {
 }
 
 /**
- * Parses tab-separated line, handling edge cases.
- * 
- * Supports formats:
- * - "quote (metadata)" - parentheses-wrapped metadata
- * - "quote\tmetadata" - tab-separated
- * - "quote" - quote only (no metadata)
- */
-function parseTabLine(line: string): string[] {
-  // Handle parentheses-wrapped metadata: "quote (metadata)"
-  const parenMatch = line.match(/^(.+?)\s*\((.+)\)\s*$/);
-  if (parenMatch) {
-    const quote = parenMatch[1].trim();
-    const metadata = parenMatch[2];
-    // Split metadata by tabs
-    const fields = metadata.split('\t').map(f => f.trim());
-    return [quote, ...fields];
-  }
-  
-  // Regular tab-separated
-  return line.split('\t').map(f => f.trim());
-}
-
-/**
  * Extracts quote and metadata from tab-separated format.
  * 
  * Handles various formats:
@@ -168,8 +147,8 @@ function normaliseMetadata(metadata: string[]): string[] {
   // Country (second field)
   normalised[1] = fields[1] || '';
   
-  // Age (third field, may contain "years old")
-  normalised[2] = fields[2] || '';
+  // Age (third field): canonical digits-only storage
+  normalised[2] = normalizeAgeValue(fields[2] || '');
   
   // State (fourth field)
   normalised[3] = fields[3] || '';
@@ -220,10 +199,10 @@ function parseCSV(input: string): ParseResult {
       
       testimonials.push({
         id: `testimonial-${index}`,
-        quote: quote || '',
+        quote: normalizeQuoteForLayout(quote || ''),
         year: year || '',
         country: country || '',
-        age: age || '',
+        age: normalizeAgeValue(age || ''),
         state: state || '',
         visa: visa || '',
         occupation: occupation || ''
@@ -259,7 +238,7 @@ function parseTabSeparated(input: string): ParseResult {
       
       testimonials.push({
         id: `testimonial-${index}`,
-        quote: quote || '',
+        quote: normalizeQuoteForLayout(quote || ''),
         year: year || '',
         country: country || '',
         age: age || '',

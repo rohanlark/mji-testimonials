@@ -1,18 +1,9 @@
 import { CSSProperties } from 'react';
-import { Testimonial, MetadataToggles, MetadataOrder } from '../types/testimonial';
+import { Testimonial, MetadataToggles, MetadataFieldKey, QuoteFontScaleOverride } from '../types/testimonial';
 import { styleConfig } from '../lib/styleConfig';
-
-/** Font scale by cell size (colSpan x rowSpan) so long text fits in small cells */
-const FONT_SCALE_MAP: Record<string, number> = {
-  '1x1': 0.8,
-  '2x1': 0.9,
-  '1x2': 0.9,
-  '3x1': 1.0,
-  '2x2': 1.0,
-  '4x1': 1.0,
-  '3x2': 0.95,
-  '4x2': 0.95,
-};
+import { getDisplayedMetadataEntries } from '../lib/metadataNormalize';
+import { normalizeQuoteForLayout } from '../lib/quoteNormalize';
+import { effectiveQuoteScale, lineHeightForQuoteScale } from '../lib/gridQuoteFontScale';
 
 interface GridQuoteProps {
   testimonial: Testimonial;
@@ -21,58 +12,86 @@ interface GridQuoteProps {
   rowSpan?: number;
   colSpan?: number;
   metadataToggles: MetadataToggles;
-  metadataOrder: MetadataOrder;
+  metadataOrder: MetadataFieldKey[];
+  onUpdateTestimonial?: (id: string, partial: Partial<Testimonial>) => void;
+  fontScaleOverride?: QuoteFontScaleOverride;
+  onSelect?: () => void;
+  isSelected?: boolean;
+  /** Opens quote edit modal on double-click (grid and single-column layout). */
+  onRequestEdit?: (id: string) => void;
 }
 
-const FIELD_ORDER_KEYS: (keyof MetadataOrder)[] = [
-  'orderYear', 'orderCountry', 'orderAge', 'orderState', 'orderVisa', 'orderOccupation',
-];
-const FIELD_TO_TOGGLE: Record<string, keyof MetadataToggles> = {
-  orderYear: 'showYear', orderCountry: 'showCountry', orderAge: 'showAge',
-  orderState: 'showState', orderVisa: 'showVisa', orderOccupation: 'showOccupation',
-};
-const FIELD_TO_VALUE: Record<string, keyof Testimonial> = {
-  orderYear: 'year', orderCountry: 'country', orderAge: 'age',
-  orderState: 'state', orderVisa: 'visa', orderOccupation: 'occupation',
-};
+export function GridQuote({
+  testimonial,
+  gridRow,
+  gridColumn,
+  rowSpan = 1,
+  colSpan = 1,
+  metadataToggles,
+  metadataOrder,
+  onUpdateTestimonial,
+  fontScaleOverride,
+  onSelect,
+  isSelected,
+  onRequestEdit,
+}: GridQuoteProps) {
+  const displayedMetadata = getDisplayedMetadataEntries(testimonial, metadataToggles, metadataOrder);
 
-export function GridQuote({ testimonial, gridRow, gridColumn, rowSpan = 1, colSpan = 1, metadataToggles, metadataOrder }: GridQuoteProps) {
-  const formatMetadata = () => {
-    const entries = FIELD_ORDER_KEYS
-      .filter((key) => metadataToggles[FIELD_TO_TOGGLE[key]])
-      .map((key) => ({
-        order: metadataOrder[key],
-        value: testimonial[FIELD_TO_VALUE[key]],
-        key,
-      }))
-      .filter((e) => e.value)
-      .sort((a, b) => a.order - b.order);
-    return entries.map((e) => e.value).join(' • ');
-  };
+  const scale = effectiveQuoteScale(colSpan, rowSpan, fontScaleOverride);
+  const lineHeight = lineHeightForQuoteScale(scale);
 
-  const sizeKey = `${colSpan}x${rowSpan}`;
-  const fontScale = FONT_SCALE_MAP[sizeKey] ?? 1;
-  const baseQuoteFontSize = 20;
-  const scaledFontSize = baseQuoteFontSize * fontScale;
+  const displayQuote = normalizeQuoteForLayout(testimonial.quote);
 
   const cellStyle: CSSProperties = {
     ...styleConfig.grid.cell,
+    minHeight: 0,
+    overflow: 'visible',
     ...(gridRow && { gridRow }),
     ...(gridColumn && { gridColumn }),
+    ...(onSelect && { cursor: 'pointer' }),
+    ['--grid-quote-scale' as string]: scale,
+    ['--grid-quote-line-height' as string]: lineHeight,
   };
 
-  const quoteStyle: CSSProperties = {
-    ...styleConfig.grid.quote,
-    fontSize: `${scaledFontSize}px`,
-  };
+  const rootClass = ['grid-quote', isSelected ? 'grid-quote-selected' : ''].filter(Boolean).join(' ');
+  const canEditInModal = Boolean(onUpdateTestimonial && onRequestEdit);
 
   return (
-    <div style={cellStyle}>
-      <div style={quoteStyle}>
-        {testimonial.quote}
-      </div>
-      <div style={styleConfig.grid.metadata}>
-        {formatMetadata()}
+    <div
+      className={rootClass}
+      style={cellStyle}
+      role={onSelect ? 'button' : undefined}
+      tabIndex={onSelect ? 0 : undefined}
+      onClick={onSelect ? () => onSelect() : undefined}
+      onKeyDown={onSelect ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(); } } : undefined}
+      lang="en"
+    >
+      <div
+        className="grid-quote__body"
+        title={canEditInModal ? 'Double-click to edit quote and metadata' : undefined}
+        onDoubleClick={
+          canEditInModal
+            ? (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onRequestEdit!(testimonial.id);
+              }
+            : undefined
+        }
+      >
+        <div className="grid-quote__inner">
+          <div className="grid-quote__text" lang="en">
+            {displayQuote}
+          </div>
+        </div>
+        <div className="grid-quote__metadata" style={styleConfig.grid.metadata}>
+          {displayedMetadata.map(({ key, value }, i) => (
+            <span key={key}>
+              {i > 0 && ' • '}
+              {value}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );

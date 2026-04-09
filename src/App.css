@@ -1,24 +1,191 @@
 .app {
   min-height: 100vh;
   background: #f5f5f5;
+  display: flex;
+  flex-direction: column;
 }
 
 .app-header {
   background: #fff;
-  padding: 2rem;
+  padding: 1rem 2rem;
   border-bottom: 1px solid #e0e0e0;
-  text-align: center;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.app-header-left {
+  min-width: 0;
 }
 
 .app-header h1 {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+  margin: 0 0 0.25rem 0;
   color: #333;
 }
 
 .app-header p {
   color: #666;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.app-header-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.header-btn {
+  padding: 0.5rem 1rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.header-btn:hover {
+  background: #0056b3;
+}
+
+/* Paste text modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1.5rem;
+  max-width: 700px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.modal-title {
+  font-size: 1.25rem;
+  margin: 0 0 0.5rem 0;
+  color: #333;
+}
+
+.modal-hint {
+  color: #666;
+  font-size: 0.875rem;
+  margin: 0 0 1rem 0;
+}
+
+.modal-textarea {
+  margin-bottom: 1rem;
+  min-height: 200px;
+}
+
+.modal-errors {
+  margin-bottom: 1rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.modal-btn-primary {
+  padding: 0.5rem 1.25rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.modal-btn-primary:hover {
+  background: #0056b3;
+}
+
+.modal-btn-secondary {
+  padding: 0.5rem 1.25rem;
+  background: #fff;
+  color: #333;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.modal-btn-secondary:hover {
+  background: #f5f5f5;
+}
+
+.modal-quote-edit .modal-textarea.quote-edit-quote {
+  min-height: 180px;
+  margin-bottom: 0;
+}
+
+.quote-edit-metadata {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.quote-edit-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.quote-edit-label-inline {
+  margin: 0;
+}
+
+.quote-edit-label-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #555;
+}
+
+.quote-edit-input {
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  box-sizing: border-box;
+}
+
+.quote-edit-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2);
+}
+
+/* Body: main content | sidebar when testimonials loaded */
+.app-body {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
 }
 
 .app-content {
@@ -111,12 +278,721 @@
   margin-top: 2rem;
 }
 
+/* Preview centered in main area */
+.renderer-preview-wrapper {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+/*
+ * Flex + justify-content: center shrink-wraps the only child to its content min-width.
+ * Stack layout then gets a near-zero width; % widths on descendants don’t expand the chain.
+ * Force the inner shell to span the row so .renderer-preview (max-width 1200px) measures correctly.
+ */
+.renderer-preview-wrapper > * {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Fixed aspect + scroll: inset matches grid gap (1rem) so cards aren’t flush against the scrollbar */
+.renderer-preview-wrapper--scroll-pad {
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.renderer-preview-inner-natural {
+  width: 100%;
+}
+
+.renderer-preview-inner-fill {
+  min-height: 0;
+}
+
+.renderer-preview-fill {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-width: none;
+}
+
+.renderer-preview {
+  width: 100%;
+  max-width: 1200px;
+}
+
+/* Track guides: subgrid overlay (QuoteRenderer) matches real column/row tracks, including variable row heights */
+.testimonial-grid--lines {
+  position: relative;
+}
+
+.testimonial-grid--lines > .grid-quote {
+  position: relative;
+  z-index: 1;
+}
+
+@supports not (grid-template-columns: subgrid) {
+  .testimonial-grid__track-overlay {
+    display: none !important;
+  }
+}
+
+.testimonial-grid__track-cell {
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+.layout-grid-lines-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.8125rem;
+  color: #444;
+  cursor: pointer;
+  user-select: none;
+}
+
+.layout-grid-lines-toggle input {
+  cursor: pointer;
+}
+
+/* Grid card selected state (matches layout tab / sidebar row highlight) */
+.grid-quote-selected {
+  background: #007bff !important;
+  border-color: #007bff !important;
+  color: #fff;
+}
+
+.grid-quote-selected [style*="color"] {
+  color: inherit;
+}
+
+/* Grid testimonial cards: container queries + fluid type (English v1) */
+.grid-quote {
+  container-type: inline-size;
+  container-name: quoteCard;
+}
+
+.grid-quote__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.grid-quote__inner {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.grid-quote__text {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-bottom: 0;
+  font-family: "Lora", Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 400;
+  color: #002c3e;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  line-height: var(--grid-quote-line-height, 1.5);
+  /* Floor ~12px, scales with card width; multiplied by --grid-quote-scale from cell + user override */
+  font-size: calc(
+    clamp(12px, 0.8rem + 2.25cqi, 1.28rem) * var(--grid-quote-scale, 1)
+  );
+}
+
+/* Pasted copy can include abbr/semantic hints; avoid dotted underlines on cards */
+.grid-quote__text * {
+  text-decoration: none;
+  border-bottom: none;
+}
+
+@supports not (font-size: 1cqi) {
+  .grid-quote__text {
+    font-size: calc(clamp(12px, 0.88rem + 1.1vw, 1.28rem) * var(--grid-quote-scale, 1));
+  }
+}
+
+.grid-quote-selected .grid-quote__text {
+  color: inherit;
+}
+
+.grid-quote__metadata {
+  flex-shrink: 0;
+}
+
+/* Single-column layout: same GridQuote cards as grid, full width */
+.testimonial-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+/* Sidebar - pinned right, separate column */
+.sidebar {
+  width: 300px;
+  flex-shrink: 0;
+  background: #fff;
+  border-left: 1px solid #e0e0e0;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.sidebar-section {
+  margin-bottom: 1.25rem;
+}
+
+.sidebar-section:last-child {
+  margin-bottom: 0;
+}
+
+.sidebar-section-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.sidebar-section-heading-row .sidebar-heading {
+  margin: 0;
+}
+
+.sidebar-quotes-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.sidebar-section-heading-row .sidebar-quotes-actions .quote-list-add,
+.sidebar-section-heading-row .sidebar-quotes-actions .quote-list-shuffle,
+.sidebar-section-heading-row .sidebar-quotes-actions .quote-list-edit-selected {
+  width: auto;
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.sidebar-heading {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #666;
+  margin: 0 0 0.5rem 0;
+}
+
+.layout-tabs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.layout-tab {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ddd;
+  background: #f9f9f9;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.layout-tab:hover {
+  background: #eee;
+}
+
+.layout-tab-active {
+  background: #007bff;
+  border-color: #007bff;
+  color: #fff;
+}
+
+.layout-tab-active:hover {
+  background: #0056b3;
+  border-color: #0056b3;
+}
+
+.layout-grid-selector {
+  margin-top: 0.75rem;
+}
+
+.layout-grid-selector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+}
+
+.layout-grid-selector-label {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.layout-grid-selector-size {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.layout-grid-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  gap: 2px;
+  width: 80px;
+  height: 80px;
+}
+
+.layout-grid-cell {
+  padding: 0;
+  border: 1px solid #ccc;
+  background: #f5f5f5;
+  border-radius: 2px;
+  cursor: pointer;
+  min-width: 0;
+  min-height: 0;
+}
+
+.layout-grid-cell:hover {
+  background: #e8e8e8;
+}
+
+.layout-grid-cell-selected {
+  background: #007bff;
+  border-color: #007bff;
+}
+
+.layout-grid-cell-selected:hover {
+  background: #0056b3;
+  border-color: #0056b3;
+}
+
+.layout-grid-cell-region {
+  background: #d0e4f7;
+  border-color: #b3d4f0;
+}
+
+.layout-grid-cell-hover-region {
+  background: #e8f0f8;
+  border-color: #d0dce8;
+}
+
+.layout-grid-cell-hover,
+.layout-grid-cell:hover {
+  background: #c5daf2;
+  border-color: #a8c8e8;
+}
+
+.layout-grid-cell-selected.layout-grid-cell-hover,
+.layout-grid-cell-selected:hover {
+  background: #007bff;
+  border-color: #007bff;
+}
+
+.quote-grid-size-popover .layout-grid-cell-invalid,
+.quote-grid-size-popover .layout-grid-cell:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  background: #ebebeb;
+  border-color: #d5d5d5;
+}
+
+.quote-grid-size-popover .layout-grid-cell-invalid:hover,
+.quote-grid-size-popover .layout-grid-cell:disabled:hover {
+  background: #ebebeb;
+  border-color: #d5d5d5;
+}
+
+.layout-aspect-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  flex-wrap: nowrap;
+}
+
+.layout-aspect-label {
+  font-size: 0.8rem;
+  color: #666;
+  flex-shrink: 0;
+}
+
+.layout-aspect-select {
+  flex: 1;
+  min-width: 0;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  background: #fff;
+}
+
+.layout-flip-btn {
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid #ddd;
+  background: #f5f5f5;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.layout-flip-btn:hover {
+  background: #eee;
+}
+
+.layout-flip-btn-icon {
+  flex-shrink: 0;
+  width: 2rem;
+  padding: 0.4rem;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.sidebar-export-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sidebar-btn {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ddd;
+  background: #f9f9f9;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.sidebar-btn:hover {
+  background: #eee;
+}
+
+.sidebar-warning {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 4px;
+  padding: 0.5rem;
+}
+
+.sidebar-warning-text {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #856404;
+}
+
+.sidebar-muted {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #999;
+}
+
+/* Quote list in sidebar */
+.quote-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.quote-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eee;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.quote-list-item:last-child {
+  border-bottom: none;
+}
+
+.quote-list-item.quote-list-item-active {
+  background: #007bff;
+  border-color: #007bff;
+  color: #fff;
+  border-radius: 4px;
+}
+
+.quote-list-item.quote-list-item-active .quote-list-preview,
+.quote-list-item.quote-list-item-active .quote-list-drag {
+  color: inherit;
+}
+
+.quote-list-item.quote-list-item-active select {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: inherit;
+}
+
+.quote-list-item.quote-list-item-active .quote-list-remove {
+  border-color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.15);
+  color: inherit;
+}
+
+.quote-list-item.quote-list-item-active .quote-list-remove:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.75);
+}
+
+.quote-list-item.quote-list-item-active + .quote-list-item {
+  border-top: 1px solid #eee;
+}
+
+.quote-list-shuffle {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #ddd;
+  background: #f9f9f9;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.quote-list-shuffle:hover {
+  background: #eee;
+}
+
+.quote-list-edit-selected {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #007bff;
+  background: #e7f1ff;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: #0056b3;
+}
+
+.quote-list-edit-selected:hover {
+  background: #d4e7ff;
+}
+
+.quote-list-drag {
+  width: 16px;
+  flex-shrink: 0;
+  cursor: grab;
+  color: #999;
+  font-size: 0.7rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quote-list-preview {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quote-list-size {
+  flex-shrink: 0;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.quote-grid-size-trigger {
+  flex-shrink: 0;
+  min-width: 3.25rem;
+  padding: 0.25rem 0.45rem;
+  font-size: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  text-align: center;
+  color: #333;
+}
+
+.quote-grid-size-trigger:hover {
+  border-color: #007bff;
+  color: #0056b3;
+}
+
+.quote-grid-size-popover {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 0.65rem 0.75rem 0.75rem;
+  min-width: 200px;
+}
+
+.quote-grid-size-popover-header {
+  margin-bottom: 0.5rem;
+}
+
+.quote-grid-size-popover-title {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #666;
+}
+
+.quote-grid-size-popover-hint {
+  display: block;
+  font-size: 0.7rem;
+  color: #888;
+  margin-top: 0.15rem;
+}
+
+.quote-grid-size-auto {
+  display: block;
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.8rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #f9f9f9;
+  cursor: pointer;
+  text-align: left;
+  color: #333;
+}
+
+.quote-grid-size-auto:hover {
+  background: #eef5ff;
+  border-color: #b3d4f0;
+}
+
+.quote-grid-size-auto-active {
+  background: #e7f1ff;
+  border-color: #007bff;
+  color: #0056b3;
+  font-weight: 600;
+}
+
+.quote-grid-size-mini-grid {
+  margin-top: 0;
+}
+
+.quote-list-text-size {
+  min-width: 4.5rem;
+}
+
+.quote-list-add {
+  min-width: 2rem;
+  padding: 0.4rem 0.45rem;
+  border: 1px solid #ddd;
+  background: #f9f9f9;
+  border-radius: 4px;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #333;
+}
+
+.quote-list-add:hover {
+  background: #eef5ff;
+  border-color: #007bff;
+  color: #0056b3;
+}
+
+.quote-list-remove {
+  flex-shrink: 0;
+  width: 1.65rem;
+  height: 1.65rem;
+  padding: 0;
+  margin: 0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #666;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.4;
+  transition: opacity 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+
+.quote-list-item:hover .quote-list-remove,
+.quote-list-item:focus-within .quote-list-remove {
+  opacity: 1;
+}
+
+.quote-list-remove:hover {
+  background: #fff5f5;
+  border-color: #e08585;
+  color: #b02a2a;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .quote-list-remove {
+    opacity: 0.85;
+  }
+}
+
+/* Metadata order list */
+.metadata-order-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.metadata-order-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid #eee;
+  font-size: 0.875rem;
+}
+
+.metadata-order-item:last-child {
+  border-bottom: none;
+}
+
+.metadata-order-drag {
+  width: 16px;
+  flex-shrink: 0;
+  cursor: grab;
+  color: #999;
+  font-size: 0.7rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.metadata-order-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  flex: 1;
+}
+
+.metadata-order-label input {
+  margin: 0;
+}
+
 .empty-state-section {
   background: #fff;
   border-radius: 8px;
   padding: 2rem;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   margin-top: 2rem;
+  text-align: center;
 }
 
 .empty-state {
@@ -124,4 +1000,21 @@
   font-style: italic;
   padding: 2rem;
   text-align: center;
+  margin: 0;
+}
+
+.empty-state-add-quote {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid #007bff;
+  background: #e7f1ff;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  color: #0056b3;
+}
+
+.empty-state-add-quote:hover {
+  background: #d4e7ff;
 }

@@ -1,0 +1,2 @@
+# Run: npm run download-fonts
+# CrimsonText-Regular.ttf (serif) and Lato-Regular.ttf (sans) for SVG export. If missing, the app falls back to raw GitHub URLs.

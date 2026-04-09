@@ -1,4 +1,5 @@
 import { Testimonial, GridSizeOverride } from '../types/testimonial';
+import { normalizeQuoteForLayout } from './quoteNormalize';
 
 export interface GridPlacement {
   testimonial: Testimonial;
@@ -20,7 +21,7 @@ export interface GridPlacement {
  * CRITICAL: rowSpan never exceeds 2; colSpan up to 4.
  */
 function calculateCellSize(quote: string): { rowSpan: number; colSpan: number } {
-  const charCount = quote.length;
+  const charCount = normalizeQuoteForLayout(quote).length;
   let rowSpan: number;
   let colSpan: number;
 
@@ -46,19 +47,22 @@ function calculateCellSize(quote: string): { rowSpan: number; colSpan: number } 
   return { rowSpan, colSpan };
 }
 
-/** Parse override string "2x1" -> { colSpan: 2, rowSpan: 1 } */
+/** Parse override string "2x1" -> { colSpan: 2, rowSpan: 1 }. Columns and rows 1–4. */
 function parseSizeOverride(override: GridSizeOverride): { rowSpan: number; colSpan: number } | null {
   if (override === 'auto') return null;
   const [colStr, rowStr] = override.split('x').map(Number);
   if (!Number.isInteger(colStr) || !Number.isInteger(rowStr)) return null;
   const colSpan = Math.min(Math.max(1, colStr), 4);
-  const rowSpan = Math.min(Math.max(1, rowStr), 2);
+  const rowSpan = Math.min(Math.max(1, rowStr), 4);
   return { rowSpan, colSpan };
 }
 
 /**
- * Checks if a cell can be placed at the given position.
- * Only column bounds are checked here; rows are extended as needed (grid can grow downward).
+ * Checks if a cell can be placed at the given position (horizontal bound only).
+ * Rows are not capped here: the layout grid auto-grows (`calculateGridRows`); `maxRows` from
+ * settings is a template hint and per-item clamp, not a hard packing ceiling — capping rows
+ * here caused first-fit to skip rows where fallback had already placed items, leaving holes
+ * (e.g. 1×1 and 2×1 not sharing a row when they fit side by side).
  */
 function canPlace(
   grid: (number | null)[][],
@@ -111,78 +115,72 @@ function placeCell(
 }
 
 /**
- * Finds the first available position for a cell using first-fit algorithm
+ * Finds the first available position (row-major first-fit).
+ * Scans through all rows that already exist in `grid` plus one new row at `grid.length` when
+ * needed, so items pack next to earlier placements instead of only searching the first
+ * `maxRows` rows (which missed tail rows created by overflow/fallback).
  */
 function findPlacement(
   grid: (number | null)[][],
   rowSpan: number,
   colSpan: number,
-  maxCols: number
+  maxCols: number,
+  maxRows: number
 ): { row: number; col: number } | null {
-  // Start from top-left, scan row by row
-  for (let row = 0; row < grid.length + 10; row++) { // Allow some expansion
+  const rowMax = Math.max(maxRows - rowSpan, grid.length);
+  for (let row = 0; row <= rowMax; row++) {
     for (let col = 0; col <= maxCols - colSpan; col++) {
       if (canPlace(grid, row, col, rowSpan, colSpan, maxCols)) {
         return { row, col };
       }
     }
   }
-  
   return null;
 }
 
 /**
- * Calculates grid layout for testimonials using bin-packing algorithm
- * Returns placements with CSS Grid row/column values.
- * Optional overrides: testimonial id -> GridSizeOverride; when set and not 'auto', use that size.
+ * Calculates grid layout in **packing order** (testimonials array order): each item is placed
+ * first-fit (row-major scan). Visual reading order may differ from array order — UI should
+ * list quotes with `sortPlacementsReadingOrder` so the sidebar matches left→right, top→bottom.
+ * Some hole patterns can still appear with awkward sizes/order; reordering or resizing usually helps.
  */
 export function calculateGridLayout(
   testimonials: Testimonial[],
   maxCols: number = 4,
-  overrides?: Record<string, GridSizeOverride>
+  overrides?: Record<string, GridSizeOverride>,
+  maxRows: number = 4
 ): GridPlacement[] {
   if (testimonials.length === 0) {
     return [];
   }
 
-  const items = testimonials.map((testimonial, index) => {
+  // Place in list order so grid visual order (L>R, T>B) matches sidebar list order.
+  // Character length (or override) still determines each item's cell size.
+  const grid: (number | null)[][] = [];
+  const placements: GridPlacement[] = [];
+
+  for (let index = 0; index < testimonials.length; index++) {
+    const testimonial = testimonials[index];
     const override = overrides?.[testimonial.id];
     const parsed = override ? parseSizeOverride(override) : null;
-    const size = parsed ?? calculateCellSize(testimonial.quote);
-    return { testimonial, index, size };
-  });
-  
-  // Sort by size (largest first) for better packing efficiency
-  items.sort((a, b) => {
-    const aArea = a.size.rowSpan * a.size.colSpan;
-    const bArea = b.size.rowSpan * b.size.colSpan;
-    return bArea - aArea;
-  });
-  
-  // Grid representation: null = empty, number = occupied by item index
-  const grid: (number | null)[][] = [];
-  
-  const placements: GridPlacement[] = [];
-  
-  // Place each item
-  for (const item of items) {
-    const { rowSpan, colSpan } = item.size;
-    
-    const position = findPlacement(grid, rowSpan, colSpan, maxCols);
-    
+    const rawSize = parsed ?? calculateCellSize(testimonial.quote);
+    const rowSpan = Math.min(rawSize.rowSpan, maxRows);
+    const colSpan = Math.min(rawSize.colSpan, maxCols);
+
+    const position = findPlacement(grid, rowSpan, colSpan, maxCols, maxRows);
+
     if (position) {
-      placeCell(grid, position.row, position.col, rowSpan, colSpan, item.index, maxCols);
-      
-      // CSS Grid uses 1-based indexing and span syntax
-      const gridRow = rowSpan > 1 
+      placeCell(grid, position.row, position.col, rowSpan, colSpan, index, maxCols);
+
+      const gridRow = rowSpan > 1
         ? `${position.row + 1} / span ${rowSpan}`
         : `${position.row + 1}`;
       const gridColumn = colSpan > 1
         ? `${position.col + 1} / span ${colSpan}`
         : `${position.col + 1}`;
-      
+
       placements.push({
-        testimonial: item.testimonial,
+        testimonial,
         row: position.row,
         col: position.col,
         rowSpan,
@@ -191,12 +189,11 @@ export function calculateGridLayout(
         gridColumn,
       });
     } else {
-      // Fallback: place at end if no space found (shouldn't happen with reasonable maxCols)
       const fallbackRow = grid.length;
-      placeCell(grid, fallbackRow, 0, rowSpan, colSpan, item.index, maxCols);
-      
+      placeCell(grid, fallbackRow, 0, rowSpan, colSpan, index, maxCols);
+
       placements.push({
-        testimonial: item.testimonial,
+        testimonial,
         row: fallbackRow,
         col: 0,
         rowSpan,
@@ -206,14 +203,7 @@ export function calculateGridLayout(
       });
     }
   }
-  
-  // Sort placements back to original order
-  placements.sort((a, b) => {
-    const aIndex = testimonials.indexOf(a.testimonial);
-    const bIndex = testimonials.indexOf(b.testimonial);
-    return aIndex - bIndex;
-  });
-  
+
   return placements;
 }
 
@@ -232,4 +222,39 @@ export function calculateGridRows(placements: GridPlacement[]): number {
   }
   
   return maxRow;
+}
+
+/** Reading order: top → bottom, left → right (matches how users scan the bento). */
+export function sortPlacementsReadingOrder(placements: GridPlacement[]): GridPlacement[] {
+  return [...placements].sort((a, b) =>
+    a.row !== b.row ? a.row - b.row : a.col - b.col
+  );
+}
+
+/**
+ * Counts empty 1×1 cells inside the occupied row range. Holes appear when first-fit
+ * placement cannot tessellate arbitrary rectangles (footprints differ); reordering or
+ * resizing cells usually reduces gaps.
+ */
+export function countVacantUnitCells(
+  placements: GridPlacement[],
+  maxCols: number
+): number {
+  if (placements.length === 0) return 0;
+  const rowCount = calculateGridRows(placements);
+  const occupied = new Set<string>();
+  for (const p of placements) {
+    for (let r = p.row; r < p.row + p.rowSpan; r++) {
+      for (let c = p.col; c < p.col + p.colSpan; c++) {
+        occupied.add(`${r},${c}`);
+      }
+    }
+  }
+  let vacant = 0;
+  for (let r = 0; r < rowCount; r++) {
+    for (let c = 0; c < maxCols; c++) {
+      if (!occupied.has(`${r},${c}`)) vacant++;
+    }
+  }
+  return vacant;
 }
