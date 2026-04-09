@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo, useCallback } from 'react';
 import { CSSProperties } from 'react';
 import {
   Testimonial,
@@ -15,7 +15,7 @@ import {
   CardSurfaceOverride,
 } from '../types/testimonial';
 import { resolveCardThemeId } from '../lib/cardThemes';
-import { GridQuote } from './GridQuote';
+import { GridQuote, type GridQuoteResizeControl } from './GridQuote';
 import { Sidebar } from './Sidebar';
 import { QuoteEditModal } from './QuoteEditModal';
 import {
@@ -44,6 +44,8 @@ export interface TestimonialPreviewProps {
   showGridLines?: boolean;
   globalCardTheme?: CardThemeId;
   cardSurfaceOverrides?: Record<string, CardSurfaceOverride>;
+  /** When set, selected grid cards get edge resize handles and commits update per-quote grid size. */
+  onGridSizeChange?: (testimonialId: string, size: GridSizeOverride) => void;
 }
 
 /** Renders only the testimonial preview (stack or grid). Used when layout is main | sidebar. */
@@ -62,13 +64,43 @@ export function TestimonialPreview({
   showGridLines = false,
   globalCardTheme = 'light',
   cardSurfaceOverrides = {},
+  onGridSizeChange,
 }: TestimonialPreviewProps) {
+  const gridContainerRef = useRef<HTMLDivElement>(null);
+  const [resizePreview, setResizePreview] = useState<{
+    id: string;
+    size: GridSizeOverride;
+  } | null>(null);
+  const [resizeLinesActive, setResizeLinesActive] = useState(false);
+
+  const effectiveGridSizeOverrides = useMemo(() => {
+    if (!resizePreview) return gridSizeOverrides;
+    return { ...gridSizeOverrides, [resizePreview.id]: resizePreview.size };
+  }, [gridSizeOverrides, resizePreview]);
+
+  const handleResizePreview = useCallback(
+    (testimonialId: string, size: GridSizeOverride | null) => {
+      setResizePreview((prev) => {
+        if (size === null) return prev?.id === testimonialId ? null : prev;
+        return { id: testimonialId, size };
+      });
+    },
+    []
+  );
+
+  const handleResizeCommit = useCallback(
+    (testimonialId: string, size: GridSizeOverride) => {
+      onGridSizeChange?.(testimonialId, size);
+    },
+    [onGridSizeChange]
+  );
+
   const placements =
     layoutMode === 'grid'
       ? calculateGridLayout(
           testimonials,
           gridDimensions.columns,
-          gridSizeOverrides,
+          effectiveGridSizeOverrides,
           gridDimensions.rows
         )
       : [];
@@ -104,6 +136,18 @@ export function TestimonialPreview({
   try {
     const rowCount = placements.length === 0 ? 1 : calculateGridRows(placements);
     const cols = gridDimensions.columns;
+    const showTrackLines = showGridLines || resizeLinesActive;
+
+    const gridResizeControl: GridQuoteResizeControl | undefined = onGridSizeChange
+      ? {
+          containerRef: gridContainerRef,
+          packingRowCount: rowCount,
+          dimensions: gridDimensions,
+          onPreview: handleResizePreview,
+          onLinesActive: setResizeLinesActive,
+          onCommit: handleResizeCommit,
+        }
+      : undefined;
     const trackOverlayStyle: CSSProperties = {
       display: 'grid',
       gridTemplateColumns: 'subgrid',
@@ -129,10 +173,13 @@ export function TestimonialPreview({
 
     return (
       <div
-        className={showGridLines ? 'testimonial-grid testimonial-grid--lines' : 'testimonial-grid'}
+        ref={gridContainerRef}
+        className={
+          showTrackLines ? 'testimonial-grid testimonial-grid--lines' : 'testimonial-grid'
+        }
         style={gridContainerStyle}
       >
-        {showGridLines ? (
+        {showTrackLines ? (
           <div className="testimonial-grid__track-overlay" style={trackOverlayStyle} aria-hidden>
             {Array.from({ length: rowCount * cols }, (_, i) => {
               const col = i % cols;
@@ -180,6 +227,7 @@ export function TestimonialPreview({
                 : undefined
             }
             isSelected={selectedQuoteId === placement.testimonial.id}
+            gridResize={gridResizeControl}
           />
         ))}
       </div>
@@ -367,6 +415,7 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
           onUpdateTestimonial={onUpdateTestimonial}
           onRequestEditQuote={onUpdateTestimonial ? (id) => setEditingQuoteId(id) : undefined}
           showGridLines={showGridLines}
+          onGridSizeChange={setGridSizeOverride}
         />
       </div>
       {onUpdateTestimonial ? (

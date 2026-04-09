@@ -339,6 +339,7 @@ function App() {
                     }
                     onRequestEditQuote={(id) => setEditingQuoteId(id)}
                     showGridLines={showGridLines}
+                    onGridSizeChange={setGridSizeOverride}
                   />
                 </ErrorBoundary>
               </div>

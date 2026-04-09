@@ -374,6 +374,50 @@
   outline-offset: 2px;
 }
 
+/* In-grid resize: stacking + hit targets (right / bottom / southeast) */
+.grid-quote--resize-handles {
+  position: relative;
+  z-index: 2;
+}
+
+.grid-quote__resize-handle {
+  position: absolute;
+  z-index: 5;
+  touch-action: none;
+  box-sizing: border-box;
+  background: transparent;
+}
+
+.grid-quote__resize-handle:hover {
+  background: rgba(0, 123, 255, 0.1);
+}
+
+.grid-quote__resize-handle--e {
+  top: 0;
+  right: 0;
+  bottom: 12px;
+  width: 14px;
+  max-width: 40%;
+  cursor: ew-resize;
+}
+
+.grid-quote__resize-handle--s {
+  bottom: 0;
+  left: 0;
+  right: 12px;
+  height: 14px;
+  max-height: 40%;
+  cursor: ns-resize;
+}
+
+.grid-quote__resize-handle--se {
+  bottom: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+}
+
 /* Grid testimonial cards: container queries + fluid type (English v1) */
 .grid-quote {
   container-type: inline-size;

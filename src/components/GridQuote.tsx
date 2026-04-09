@@ -1,10 +1,13 @@
 import { CSSProperties, useLayoutEffect, useRef, useState } from 'react';
+import type { RefObject } from 'react';
 import {
   Testimonial,
   MetadataToggles,
   MetadataFieldKey,
   QuoteFontScaleOverride,
   CardThemeId,
+  GridDimensions,
+  GridSizeOverride,
 } from '../types/testimonial';
 import { styleConfig } from '../lib/styleConfig';
 import { getCardThemeTokens } from '../lib/cardThemes';
@@ -12,6 +15,21 @@ import { getDisplayedMetadataEntries } from '../lib/metadataNormalize';
 import { normalizeQuoteForLayout } from '../lib/quoteNormalize';
 import { lineHeightForQuoteScale } from '../lib/gridQuoteFontScale';
 import { AUTO_FIT_LINE_HEIGHT, measureAutoQuoteFontSizePx } from '../lib/fitGridQuoteFont';
+import {
+  computeSpannedCellsFromPointerDelta,
+  readGridResizeSteps,
+  spansToGridOverride,
+  type GridResizeAxis,
+} from '../lib/gridResizeDrag';
+
+export interface GridQuoteResizeControl {
+  containerRef: RefObject<HTMLDivElement | null>;
+  packingRowCount: number;
+  dimensions: GridDimensions;
+  onPreview: (testimonialId: string, size: GridSizeOverride | null) => void;
+  onLinesActive: (active: boolean) => void;
+  onCommit: (testimonialId: string, size: GridSizeOverride) => void;
+}
 
 interface GridQuoteProps {
   testimonial: Testimonial;
@@ -28,6 +46,8 @@ interface GridQuoteProps {
   /** Opens quote edit modal on double-click (grid and single-column layout). */
   onRequestEdit?: (id: string) => void;
   cardTheme: CardThemeId;
+  /** When set and the card is selected, show grid resize handles (grid layout only). */
+  gridResize?: GridQuoteResizeControl;
 }
 
 export function GridQuote({
@@ -44,6 +64,7 @@ export function GridQuote({
   isSelected,
   onRequestEdit,
   cardTheme,
+  gridResize,
 }: GridQuoteProps) {
   const displayedMetadata = getDisplayedMetadataEntries(testimonial, metadataToggles, metadataOrder);
   const tokens = getCardThemeTokens(cardTheme);
@@ -97,6 +118,20 @@ export function GridQuote({
     };
   }, [isAuto, displayQuote, metadataSig, colSpan, rowSpan, testimonial.id]);
 
+  const resizeSessionRef = useRef<{
+    pointerId: number;
+    axis: GridResizeAxis;
+    startColSpan: number;
+    startRowSpan: number;
+    startX: number;
+    startY: number;
+    colStep: number;
+    rowStep: number;
+    lastOverride: GridSizeOverride;
+  } | null>(null);
+
+  const showResizeHandles = Boolean(gridResize && isSelected && gridRow && gridColumn);
+
   const cellStyle: CSSProperties = {
     ...styleConfig.grid.cell,
     backgroundColor: tokens.backgroundColor,
@@ -111,7 +146,13 @@ export function GridQuote({
     ['--grid-quote-line-height' as string]: lineHeightCss,
   };
 
-  const rootClass = ['grid-quote', isSelected ? 'grid-quote-selected' : ''].filter(Boolean).join(' ');
+  const rootClass = [
+    'grid-quote',
+    isSelected ? 'grid-quote-selected' : '',
+    showResizeHandles ? 'grid-quote--resize-handles' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
   const canEditInModal = Boolean(onUpdateTestimonial && onRequestEdit);
 
   const textStyle: CSSProperties = {
@@ -122,13 +163,92 @@ export function GridQuote({
       : {}),
   };
 
+  const startResizeDrag = (axis: GridResizeAxis) => (e: React.PointerEvent) => {
+    if (!gridResize) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const gridEl = gridResize.containerRef.current;
+    if (!gridEl) return;
+
+    const { colStep, rowStep } = readGridResizeSteps(
+      gridEl,
+      gridResize.dimensions.columns,
+      gridResize.packingRowCount
+    );
+    const lastOverride = spansToGridOverride(colSpan, rowSpan);
+    resizeSessionRef.current = {
+      pointerId: e.pointerId,
+      axis,
+      startColSpan: colSpan,
+      startRowSpan: rowSpan,
+      startX: e.clientX,
+      startY: e.clientY,
+      colStep,
+      rowStep,
+      lastOverride,
+    };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    gridResize.onLinesActive(true);
+    gridResize.onPreview(testimonial.id, lastOverride);
+  };
+
+  const onResizePointerMove = (e: React.PointerEvent) => {
+    const s = resizeSessionRef.current;
+    const gr = gridResize;
+    if (!s || !gr || e.pointerId !== s.pointerId) return;
+
+    const deltaX = e.clientX - s.startX;
+    const deltaY = e.clientY - s.startY;
+    const { colSpan: nc, rowSpan: nr } = computeSpannedCellsFromPointerDelta({
+      axis: s.axis,
+      deltaX,
+      deltaY,
+      startColSpan: s.startColSpan,
+      startRowSpan: s.startRowSpan,
+      colStep: s.colStep,
+      rowStep: s.rowStep,
+      dimensions: gr.dimensions,
+    });
+    const next = spansToGridOverride(nc, nr);
+    if (next !== s.lastOverride) {
+      s.lastOverride = next;
+      gr.onPreview(testimonial.id, next);
+    }
+  };
+
+  const finishResizeDrag = (e: React.PointerEvent, commit: boolean) => {
+    const s = resizeSessionRef.current;
+    const gr = gridResize;
+    if (!s || !gr || e.pointerId !== s.pointerId) return;
+
+    const finalOverride = s.lastOverride;
+    resizeSessionRef.current = null;
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+    gr.onLinesActive(false);
+    gr.onPreview(testimonial.id, null);
+    if (commit) {
+      gr.onCommit(testimonial.id, finalOverride);
+    }
+  };
+
   return (
     <div
       className={rootClass}
       style={cellStyle}
       role={onSelect ? 'button' : undefined}
       tabIndex={onSelect ? 0 : undefined}
-      onClick={onSelect ? () => onSelect() : undefined}
+      onClick={
+        onSelect
+          ? (ev) => {
+              if ((ev.target as HTMLElement).closest('.grid-quote__resize-handle')) return;
+              onSelect();
+            }
+          : undefined
+      }
       onKeyDown={
         onSelect
           ? (e) => {
@@ -175,6 +295,34 @@ export function GridQuote({
           ))}
         </div>
       </div>
+      {showResizeHandles ? (
+        <>
+          <div
+            className="grid-quote__resize-handle grid-quote__resize-handle--e"
+            aria-label="Resize quote width on grid"
+            onPointerDown={startResizeDrag('e')}
+            onPointerMove={onResizePointerMove}
+            onPointerUp={(ev) => finishResizeDrag(ev, true)}
+            onPointerCancel={(ev) => finishResizeDrag(ev, false)}
+          />
+          <div
+            className="grid-quote__resize-handle grid-quote__resize-handle--s"
+            aria-label="Resize quote height on grid"
+            onPointerDown={startResizeDrag('s')}
+            onPointerMove={onResizePointerMove}
+            onPointerUp={(ev) => finishResizeDrag(ev, true)}
+            onPointerCancel={(ev) => finishResizeDrag(ev, false)}
+          />
+          <div
+            className="grid-quote__resize-handle grid-quote__resize-handle--se"
+            aria-label="Resize quote width and height on grid"
+            onPointerDown={startResizeDrag('se')}
+            onPointerMove={onResizePointerMove}
+            onPointerUp={(ev) => finishResizeDrag(ev, true)}
+            onPointerCancel={(ev) => finishResizeDrag(ev, false)}
+          />
+        </>
+      ) : null}
     </div>
   );
 }
