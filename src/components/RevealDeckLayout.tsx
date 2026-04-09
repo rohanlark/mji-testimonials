@@ -26,7 +26,6 @@ export interface RevealDeckLayoutProps {
   metadataToggles: MetadataToggles;
   metadataOrder: MetadataFieldKey[];
   globalCardTheme: GlobalCardThemeId;
-  selectedQuoteId?: string | null;
   onSelectQuote?: (id: string | null) => void;
   onUpdateTestimonial?: (id: string, partial: Partial<Testimonial>) => void;
   onRequestEditQuote?: (id: string) => void;
@@ -39,7 +38,6 @@ export function RevealDeckLayout({
   metadataToggles,
   metadataOrder,
   globalCardTheme,
-  selectedQuoteId,
   onSelectQuote,
   onUpdateTestimonial,
   onRequestEditQuote,
@@ -62,29 +60,34 @@ export function RevealDeckLayout({
     setQueue(sliceInitial());
   }, [testimonials, sliceInitial, revealed]);
 
-  useEffect(() => {
-    if (!onSelectQuote) return;
-    const front = queue[0];
-    const id = front?.id ?? null;
-    if (id && id !== selectedQuoteId) onSelectQuote(id);
-  }, [queue, onSelectQuote, selectedQuoteId]);
+  /**
+   * Same class of bug as carousel: an effect that pushes queue[0] → onSelectQuote whenever
+   * selectedQuoteId differs fights the list: list sets selection B while front is still A,
+   * effect calls onSelectQuote(A), loop. Publish selection only from dismiss/reset.
+   */
 
   useEffect(() => {
     if (revealed) onSelectQuote?.(null);
   }, [revealed, onSelectQuote]);
 
   const dismissFront = useCallback(() => {
+    let publishId: string | null | undefined;
     setQueue((q) => {
       if (q.length === 1) pendingRevealRef.current = true;
-      return q.slice(1);
+      const next = q.slice(1);
+      publishId = next[0]?.id ?? null;
+      return next;
     });
-  }, []);
+    if (publishId !== undefined) onSelectQuote?.(publishId);
+  }, [onSelectQuote]);
 
   const reset = useCallback(() => {
     pendingRevealRef.current = false;
     setRevealed(false);
-    setQueue(sliceInitial());
-  }, [sliceInitial]);
+    const q = sliceInitial();
+    setQueue(q);
+    onSelectQuote?.(q[0]?.id ?? null);
+  }, [sliceInitial, onSelectQuote]);
 
   const handleExitComplete = useCallback(() => {
     if (pendingRevealRef.current) {

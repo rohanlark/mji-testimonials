@@ -208,7 +208,6 @@ export function TestimonialPreview({
         metadataToggles={metadataToggles}
         metadataOrder={metadataOrder}
         globalCardTheme={globalCardTheme}
-        selectedQuoteId={selectedQuoteId}
         onSelectQuote={onSelectQuote}
         onUpdateTestimonial={onUpdateTestimonial}
         onRequestEditQuote={onRequestEditQuote}

@@ -61,32 +61,45 @@ export function CarouselDeckLayout({
 
   const deckCardTheme = resolveCardThemeId(globalCardTheme, 'inherit');
 
-  const goNext = useCallback(() => {
-    if (n <= 1) return;
-    setActiveIndex((i) => (i + 1) % n);
-  }, [n]);
-
-  const goPrev = useCallback(() => {
-    if (n <= 1) return;
-    setActiveIndex((i) => (i - 1 + n) % n);
-  }, [n]);
-
   useEffect(() => {
     if (n === 0) return;
     setActiveIndex((i) => Math.min(i, n - 1));
   }, [n]);
 
+  /**
+   * Parent/list → carousel only (one direction). Do NOT add an effect that pushes
+   * activeIndex → onSelectQuote here: on the same paint, activeIndex is still stale,
+   * so that effect would call onSelectQuote(front) and overwrite the list selection,
+   * causing a rapid A↔B loop.
+   */
   useEffect(() => {
     if (!selectedQuoteId || n === 0) return;
     const idx = testimonials.findIndex((t) => t.id === selectedQuoteId);
-    if (idx !== -1) setActiveIndex(idx);
+    if (idx === -1) return;
+    setActiveIndex((cur) => (cur === idx ? cur : idx));
   }, [selectedQuoteId, testimonials, n]);
 
-  useEffect(() => {
-    if (!onSelectQuote || n === 0) return;
-    const id = testimonials[activeIndex]?.id ?? null;
-    if (id && id !== selectedQuoteId) onSelectQuote(id);
-  }, [activeIndex, n, onSelectQuote, selectedQuoteId, testimonials]);
+  const goNext = useCallback(() => {
+    if (n <= 1) return;
+    let nextIdx = 0;
+    setActiveIndex((prev) => {
+      nextIdx = (prev + 1) % n;
+      return nextIdx;
+    });
+    const id = testimonials[nextIdx]?.id;
+    if (id) onSelectQuote?.(id);
+  }, [n, onSelectQuote, testimonials]);
+
+  const goPrev = useCallback(() => {
+    if (n <= 1) return;
+    let nextIdx = 0;
+    setActiveIndex((prev) => {
+      nextIdx = (prev - 1 + n) % n;
+      return nextIdx;
+    });
+    const id = testimonials[nextIdx]?.id;
+    if (id) onSelectQuote?.(id);
+  }, [n, onSelectQuote, testimonials]);
 
   useEffect(() => {
     if (n === 0) return;
