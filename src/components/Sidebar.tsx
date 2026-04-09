@@ -3,16 +3,14 @@ import {
   LayoutMode,
   Testimonial,
   GridSizeOverride,
-  QuoteFontScaleOverride,
   GridAspectRatio,
   GridDimensions,
   GRID_ASPECT_RATIO_OPTIONS,
   MetadataFieldKey,
   MetadataToggles,
-  CardThemeId,
-  CardSurfaceOverride,
-  CARD_THEME_IDS,
+  GLOBAL_CARD_THEME_IDS,
   CARD_THEME_LABELS,
+  GlobalCardThemeId,
 } from '../types/testimonial';
 import { calculateGridLayout, sortPlacementsReadingOrder } from '../lib/gridLayout';
 import { QuoteList } from './QuoteList';
@@ -33,13 +31,8 @@ export interface SidebarProps {
   onAddQuote?: () => void;
   onRemoveQuote?: (id: string) => void;
   gridSizeOverrides: Record<string, GridSizeOverride>;
-  setGridSizeOverride: (testimonialId: string, size: GridSizeOverride) => void;
-  fontScaleOverrides: Record<string, QuoteFontScaleOverride>;
-  setFontScaleOverride: (testimonialId: string, scale: QuoteFontScaleOverride) => void;
-  globalCardTheme: CardThemeId;
-  setGlobalCardTheme: (theme: CardThemeId) => void;
-  cardSurfaceOverrides: Record<string, CardSurfaceOverride>;
-  setCardSurfaceOverride: (testimonialId: string, surface: CardSurfaceOverride) => void;
+  globalCardTheme: GlobalCardThemeId;
+  setGlobalCardTheme: (theme: GlobalCardThemeId) => void;
   selectedQuoteId: string | null;
   onSelectQuote: (id: string | null) => void;
   /** Grid: open modal to edit the selected quote (keyboard / explicit control). */
@@ -53,6 +46,8 @@ export interface SidebarProps {
   gridVacancyWarning?: string;
   showGridLines: boolean;
   setShowGridLines: (value: boolean) => void;
+  quoteHyphenation: boolean;
+  setQuoteHyphenation: (value: boolean) => void;
   onExportSVG: () => void;
   onCopyEmbed: () => void;
   onDownloadHTML: () => void;
@@ -73,13 +68,8 @@ export function Sidebar({
   onAddQuote,
   onRemoveQuote,
   gridSizeOverrides,
-  setGridSizeOverride,
-  fontScaleOverrides,
-  setFontScaleOverride,
   globalCardTheme,
   setGlobalCardTheme,
-  cardSurfaceOverrides,
-  setCardSurfaceOverride,
   selectedQuoteId,
   onSelectQuote,
   onEditSelectedQuote,
@@ -91,6 +81,8 @@ export function Sidebar({
   gridVacancyWarning = '',
   showGridLines,
   setShowGridLines,
+  quoteHyphenation,
+  setQuoteHyphenation,
   onExportSVG,
   onCopyEmbed,
   onDownloadHTML,
@@ -112,34 +104,33 @@ export function Sidebar({
       ? sortPlacementsReadingOrder(gridPlacements).map((p) => p.testimonial)
       : testimonials;
 
-  const resolvedAutoSpanById: Record<string, string> = {};
-  for (const p of gridPlacements) {
-    resolvedAutoSpanById[p.testimonial.id] = `${p.colSpan}×${p.rowSpan}`;
-  }
-
-  const cardThemeRow = (
-    <div className="layout-theme-row">
-      <label htmlFor="global-card-theme" className="layout-aspect-label">
-        Theme
-      </label>
-      <select
-        id="global-card-theme"
-        className="layout-aspect-select"
-        value={globalCardTheme}
-        onChange={(e) => setGlobalCardTheme(e.target.value as CardThemeId)}
-        aria-label="Default card theme"
-      >
-        {CARD_THEME_IDS.map((id) => (
+  return (
+    <aside className="sidebar">
+      <section className="sidebar-section">
+        <h3 className="sidebar-heading">Theme</h3>
+        <select
+          id="global-card-theme"
+          className="sidebar-theme-select"
+          value={globalCardTheme}
+          onChange={(e) => setGlobalCardTheme(e.target.value as GlobalCardThemeId)}
+          aria-label="Card theme"
+        >
+        {GLOBAL_CARD_THEME_IDS.map((id) => (
           <option key={id} value={id}>
             {CARD_THEME_LABELS[id]}
           </option>
         ))}
-      </select>
-    </div>
-  );
+        </select>
+        <label className="sidebar-hyphenation-toggle">
+          <input
+            type="checkbox"
+            checked={quoteHyphenation}
+            onChange={(e) => setQuoteHyphenation(e.target.checked)}
+          />
+          Hyphenation
+        </label>
+      </section>
 
-  return (
-    <aside className="sidebar">
       <section className="sidebar-section">
         <h3 className="sidebar-heading">Layout</h3>
         <div className="layout-tabs">
@@ -231,7 +222,6 @@ export function Sidebar({
                   </button>
                 )}
               </div>
-              {cardThemeRow}
               <label className="layout-grid-lines-toggle">
                 <span className="layout-grid-lines-label">Show grid lines</span>
                 <input
@@ -242,9 +232,7 @@ export function Sidebar({
               </label>
             </div>
           </div>
-        ) : (
-          <div className="layout-stack-settings">{cardThemeRow}</div>
-        )}
+        ) : null}
       </section>
 
       <section className="sidebar-section">
@@ -283,24 +271,11 @@ export function Sidebar({
           </div>
         </div>
         <QuoteList
-          layoutMode={layoutMode}
           testimonials={quoteListTestimonials}
           onReorder={onReorderQuotes}
           onSelectQuote={onSelectQuote}
-          gridDimensions={gridDimensions}
-          gridSizeOverrides={gridSizeOverrides}
-          onGridSizeChange={setGridSizeOverride}
-          fontScaleOverrides={fontScaleOverrides}
-          onFontScaleChange={setFontScaleOverride}
-          cardSurfaceOverrides={cardSurfaceOverrides}
-          onCardSurfaceChange={setCardSurfaceOverride}
           selectedQuoteId={selectedQuoteId}
           onRemoveQuote={onRemoveQuote}
-          resolvedAutoSpanById={
-            layoutMode === 'grid' && Object.keys(resolvedAutoSpanById).length > 0
-              ? resolvedAutoSpanById
-              : undefined
-          }
         />
       </section>
 

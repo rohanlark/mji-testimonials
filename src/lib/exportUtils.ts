@@ -11,8 +11,8 @@ import {
   GridDimensions,
   GridSizeOverride,
   QuoteFontScaleOverride,
-  CardThemeId,
   CardSurfaceOverride,
+  GlobalCardThemeId,
 } from '../types/testimonial';
 import { getCardThemeTokens, resolveCardThemeId } from './cardThemes';
 import { calculateGridLayout, calculateGridRows } from './gridLayout';
@@ -103,9 +103,11 @@ export function generateEmbedCode(
   gridDimensions: GridDimensions = { columns: 4, rows: 4 },
   gridSizeOverrides: Record<string, GridSizeOverride> = {},
   fontScaleOverrides: Record<string, QuoteFontScaleOverride> = {},
-  globalCardTheme: CardThemeId = 'light',
-  cardSurfaceOverrides: Record<string, CardSurfaceOverride> = {}
+  globalCardTheme: GlobalCardThemeId = 'light',
+  cardSurfaceOverrides: Record<string, CardSurfaceOverride> = {},
+  quoteHyphenation = false
 ): string {
+  const hyphenCss = quoteHyphenation ? 'auto' : 'none';
   const gridMetadataBase = cssObjectToString({
     fontFamily: styleConfig.grid.metadata.fontFamily,
     fontSize: styleConfig.grid.metadata.fontSize,
@@ -134,7 +136,11 @@ export function generateEmbedCode(
     html +=
       '  .testimonial-card { border-radius: 8px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between; }\n';
     html +=
-      '  .stack-quote { font-family: "Lora", Georgia, "Times New Roman", serif; font-style: italic; line-height: 1.5; font-size: 24px; padding: 0; margin-bottom: 16px; text-decoration: none; overflow-wrap: anywhere; hyphens: auto; }\n';
+      '  .stack-quote { font-family: "Lora", Georgia, "Times New Roman", serif; font-style: italic; line-height: 1.5; font-size: 24px; padding: 0; margin-bottom: 16px; text-decoration: none; overflow-wrap: anywhere; hyphens: ' +
+      hyphenCss +
+      '; -webkit-hyphens: ' +
+      hyphenCss +
+      '; }\n';
     html +=
       '  .stack-metadata { font-family: "Inter Tight", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; margin-top: 16px; padding-top: 16px; padding-left: 0; line-height: 1.4; }\n';
   } else {
@@ -151,7 +157,11 @@ export function generateEmbedCode(
       (styleConfig.grid.quote.fontFamily ?? '"Lora", Georgia, serif') +
       '; font-style: ' +
       (styleConfig.grid.quote.fontStyle ?? 'italic') +
-      '; text-decoration: none; overflow-wrap: anywhere; hyphens: auto; line-height: var(--grid-quote-line-height, 1.5); ';
+      '; text-decoration: none; overflow-wrap: anywhere; hyphens: ' +
+      hyphenCss +
+      '; -webkit-hyphens: ' +
+      hyphenCss +
+      '; line-height: var(--grid-quote-line-height, 1.5); ';
     html +=
       'font-size: calc(clamp(12px, 0.8rem + 2.25cqi, 1.28rem) * var(--grid-quote-scale, 1)); }\n';
     html +=
@@ -443,7 +453,7 @@ export async function generateSVG(
   metadataOrder?: MetadataFieldKey[],
   gridDimensions?: GridDimensions,
   fontScaleOverrides?: Record<string, QuoteFontScaleOverride>,
-  globalCardTheme: CardThemeId = 'light',
+  globalCardTheme: GlobalCardThemeId = 'light',
   cardSurfaceOverrides: Record<string, CardSurfaceOverride> = {}
 ): Promise<string> {
   const toggles = metadataToggles ?? { ...DEFAULT_METADATA_TOGGLES };

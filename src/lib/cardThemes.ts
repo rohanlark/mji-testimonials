@@ -1,4 +1,4 @@
-import { CardSurfaceOverride, CardThemeId } from '../types/testimonial';
+import { CardSurfaceOverride, CardThemeId, GlobalCardThemeId } from '../types/testimonial';
 
 export interface CardThemeTokens {
   backgroundColor: string;
@@ -25,34 +25,24 @@ const CARD_THEMES: Record<CardThemeId, CardThemeTokens> = {
     metadataDividerColor: '#E8E8E8',
   },
   dark: {
-    backgroundColor: '#152028',
-    border: '1px solid #2a3f4d',
-    boxShadow: '0 1px 24px rgba(0, 0, 0, 0.25)',
-    quoteColor: '#f0f4f6',
+    backgroundColor: '#002130',
+    border: '1px solid #002130',
+    boxShadow: '0 1px 24px rgba(0, 0, 0, 0.22)',
+    quoteColor: '#FFFFFF',
     quoteFontWeight: 400,
-    metadataColor: '#c8d4dc',
+    metadataColor: '#FFFFFF',
     metadataFontWeight: 500,
-    metadataDividerColor: '#3d5260',
+    metadataDividerColor: 'rgba(255, 255, 255, 0.28)',
   },
   teal: {
-    backgroundColor: '#e8f6f5',
-    border: '1px solid #1b9e8e',
-    boxShadow: '0 1px 24px rgba(27, 158, 142, 0.12)',
-    quoteColor: '#063d38',
-    quoteFontWeight: 400,
-    metadataColor: '#0a5249',
-    metadataFontWeight: 500,
-    metadataDividerColor: '#9ccbc4',
-  },
-  oftail: {
-    backgroundColor: '#f7f2eb',
-    border: '1px solid #b8956a',
-    boxShadow: '0 1px 24px rgba(90, 60, 40, 0.08)',
-    quoteColor: '#3a2f26',
-    quoteFontWeight: 400,
-    metadataColor: '#5c4a3d',
-    metadataFontWeight: 500,
-    metadataDividerColor: '#d9cfc2',
+    backgroundColor: '#0A7791',
+    border: '1px solid #0A7791',
+    boxShadow: '0 1px 24px rgba(0, 50, 60, 0.18)',
+    quoteColor: '#FFFFFF',
+    quoteFontWeight: 500,
+    metadataColor: '#FFFFFF',
+    metadataFontWeight: 600,
+    metadataDividerColor: 'rgba(255, 255, 255, 0.35)',
   },
 };
 
@@ -61,7 +51,7 @@ export function getCardThemeTokens(theme: CardThemeId): CardThemeTokens {
 }
 
 export function resolveCardThemeId(
-  globalTheme: CardThemeId,
+  globalTheme: GlobalCardThemeId,
   override: CardSurfaceOverride | undefined
 ): CardThemeId {
   if (!override || override === 'inherit') return globalTheme;

@@ -12,8 +12,8 @@ import {
   GridAspectRatio,
   GridDimensions,
   getGridAspectRatioCss,
-  CardThemeId,
   CardSurfaceOverride,
+  GlobalCardThemeId,
 } from './types/testimonial';
 import { TestimonialPreview } from './components/QuoteRenderer';
 import { Sidebar } from './components/Sidebar';
@@ -27,6 +27,7 @@ import {
 import { normalizeQuoteForLayout } from './lib/quoteNormalize';
 import { createEmptyTestimonial } from './lib/createTestimonial';
 import { generateSVG, generateEmbedCode, downloadFile, copyToClipboard } from './lib/exportUtils';
+import { swapQuoteWithNeighborWrapped } from './lib/swapQuoteInOrder';
 import './App.css';
 
 function App() {
@@ -42,7 +43,8 @@ function App() {
   const [gridAspectRatioFlipped, setGridAspectRatioFlipped] = useState(false);
   const [gridDimensions, setGridDimensions] = useState<GridDimensions>({ columns: 3, rows: 3 });
   const [showGridLines, setShowGridLines] = useState(false);
-  const [globalCardTheme, setGlobalCardTheme] = useState<CardThemeId>('light');
+  const [quoteHyphenation, setQuoteHyphenation] = useState(false);
+  const [globalCardTheme, setGlobalCardTheme] = useState<GlobalCardThemeId>('light');
   const [cardSurfaceOverrides, setCardSurfaceOverrides] = useState<
     Record<string, CardSurfaceOverride>
   >({});
@@ -175,6 +177,15 @@ function App() {
     });
   };
 
+  const handleSwapQuoteOrder = useCallback(
+    (testimonialId: string, delta: -1 | 1) => {
+      setTestimonials((prev) =>
+        swapQuoteWithNeighborWrapped(prev, testimonialId, delta)
+      );
+    },
+    []
+  );
+
   const setMetadataToggle = (field: keyof MetadataToggles, value: boolean) => {
     setMetadataToggles((prev) => ({ ...prev, [field]: value }));
   };
@@ -195,7 +206,7 @@ function App() {
   });
   const readabilityWarning =
     smallCellPlacements.length > 0
-      ? `Quotes ${smallCellPlacements.map((p) => sidebarQuoteIndex(p.testimonial.id)).join(', ')} are long for their cell size. Shorten the quote, or increase the grid size / font scale for those rows in the sidebar.`
+      ? `Quotes ${smallCellPlacements.map((p) => sidebarQuoteIndex(p.testimonial.id)).join(', ')} are long for their cell size. Shorten the quote, increase the grid size, or reduce text size on the selected card.`
       : '';
 
   const vacantCells =
@@ -235,7 +246,8 @@ function App() {
         gridSizeOverrides,
         fontScaleOverrides,
         globalCardTheme,
-        cardSurfaceOverrides
+        cardSurfaceOverrides,
+        quoteHyphenation
       );
       await copyToClipboard(embedCode);
       alert('Embed code copied to clipboard!');
@@ -252,7 +264,8 @@ function App() {
       gridSizeOverrides,
       fontScaleOverrides,
       globalCardTheme,
-      cardSurfaceOverrides
+      cardSurfaceOverrides,
+      quoteHyphenation
     );
     downloadFile(embedCode, 'testimonials.html', 'text/html');
   };
@@ -340,6 +353,10 @@ function App() {
                     onRequestEditQuote={(id) => setEditingQuoteId(id)}
                     showGridLines={showGridLines}
                     onGridSizeChange={setGridSizeOverride}
+                    onFontScaleChange={setFontScaleOverride}
+                    onCardSurfaceChange={setCardSurfaceOverride}
+                    onSwapQuoteOrder={handleSwapQuoteOrder}
+                    quoteHyphenation={quoteHyphenation}
                   />
                 </ErrorBoundary>
               </div>
@@ -446,13 +463,8 @@ function App() {
             onAddQuote={handleAddQuote}
             onRemoveQuote={handleRemoveQuote}
             gridSizeOverrides={gridSizeOverrides}
-            setGridSizeOverride={setGridSizeOverride}
-            fontScaleOverrides={fontScaleOverrides}
-            setFontScaleOverride={setFontScaleOverride}
             globalCardTheme={globalCardTheme}
             setGlobalCardTheme={setGlobalCardTheme}
-            cardSurfaceOverrides={cardSurfaceOverrides}
-            setCardSurfaceOverride={setCardSurfaceOverride}
             selectedQuoteId={selectedQuoteId}
             onSelectQuote={setSelectedQuoteId}
             onEditSelectedQuote={() => {
@@ -466,6 +478,8 @@ function App() {
             gridVacancyWarning={gridVacancyWarning}
             showGridLines={showGridLines}
             setShowGridLines={setShowGridLines}
+            quoteHyphenation={quoteHyphenation}
+            setQuoteHyphenation={setQuoteHyphenation}
             onExportSVG={handleExportSVG}
             onCopyEmbed={handleCopyEmbed}
             onDownloadHTML={handleDownloadHTML}

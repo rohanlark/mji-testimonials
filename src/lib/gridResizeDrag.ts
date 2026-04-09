@@ -1,6 +1,7 @@
 import { GridDimensions, GridSizeOverride } from '../types/testimonial';
 
-export type GridResizeAxis = 'e' | 's' | 'se';
+/** Handle position: edges grow/shrink span along that direction; corners adjust both. */
+export type GridResizeAxis = 'n' | 'e' | 's' | 'w' | 'nw' | 'ne' | 'se' | 'sw';
 
 export function spansToGridOverride(colSpan: number, rowSpan: number): GridSizeOverride {
   return `${colSpan}x${rowSpan}` as GridSizeOverride;
@@ -31,6 +32,47 @@ export function readGridResizeSteps(
   return { colStep, rowStep };
 }
 
+function axisColRowDeltas(axis: GridResizeAxis, deltaX: number, deltaY: number, colStep: number, rowStep: number) {
+  const cx = Math.max(colStep, 1);
+  const ry = Math.max(rowStep, 1);
+
+  let colDelta = 0;
+  let rowDelta = 0;
+
+  switch (axis) {
+    case 'e':
+      colDelta = Math.round(deltaX / cx);
+      break;
+    case 'w':
+      colDelta = Math.round(-deltaX / cx);
+      break;
+    case 's':
+      rowDelta = Math.round(deltaY / ry);
+      break;
+    case 'n':
+      rowDelta = Math.round(-deltaY / ry);
+      break;
+    case 'se':
+      colDelta = Math.round(deltaX / cx);
+      rowDelta = Math.round(deltaY / ry);
+      break;
+    case 'sw':
+      colDelta = Math.round(-deltaX / cx);
+      rowDelta = Math.round(deltaY / ry);
+      break;
+    case 'ne':
+      colDelta = Math.round(deltaX / cx);
+      rowDelta = Math.round(-deltaY / ry);
+      break;
+    case 'nw':
+      colDelta = Math.round(-deltaX / cx);
+      rowDelta = Math.round(-deltaY / ry);
+      break;
+  }
+
+  return { colDelta, rowDelta };
+}
+
 export function computeSpannedCellsFromPointerDelta(options: {
   axis: GridResizeAxis;
   deltaX: number;
@@ -52,8 +94,7 @@ export function computeSpannedCellsFromPointerDelta(options: {
     dimensions,
   } = options;
 
-  const colDelta = axis === 's' ? 0 : Math.round(deltaX / Math.max(colStep, 1));
-  const rowDelta = axis === 'e' ? 0 : Math.round(deltaY / Math.max(rowStep, 1));
+  const { colDelta, rowDelta } = axisColRowDeltas(axis, deltaX, deltaY, colStep, rowStep);
 
   const colSpan = Math.min(
     dimensions.columns,

@@ -8,7 +8,14 @@ import {
   CardThemeId,
   GridDimensions,
   GridSizeOverride,
+  CardSurfaceOverride,
+  CARD_THEME_IDS,
+  CARD_THEME_LABELS,
 } from '../types/testimonial';
+import {
+  QUOTE_FONT_SCALE_OPTIONS,
+  stepQuoteFontScale,
+} from '../lib/quoteCardAppearanceOptions';
 import { styleConfig } from '../lib/styleConfig';
 import { getCardThemeTokens } from '../lib/cardThemes';
 import { getDisplayedMetadataEntries } from '../lib/metadataNormalize';
@@ -22,6 +29,17 @@ import {
   type GridResizeAxis,
 } from '../lib/gridResizeDrag';
 
+const GRID_RESIZE_HANDLES: { axis: GridResizeAxis; label: string }[] = [
+  { axis: 'n', label: 'Resize grid cell height from top' },
+  { axis: 'e', label: 'Resize grid cell width from right' },
+  { axis: 's', label: 'Resize grid cell height from bottom' },
+  { axis: 'w', label: 'Resize grid cell width from left' },
+  { axis: 'nw', label: 'Resize grid cell from top-left' },
+  { axis: 'ne', label: 'Resize grid cell from top-right' },
+  { axis: 'se', label: 'Resize grid cell from bottom-right' },
+  { axis: 'sw', label: 'Resize grid cell from bottom-left' },
+];
+
 export interface GridQuoteResizeControl {
   containerRef: RefObject<HTMLDivElement | null>;
   packingRowCount: number;
@@ -29,6 +47,17 @@ export interface GridQuoteResizeControl {
   onPreview: (testimonialId: string, size: GridSizeOverride | null) => void;
   onLinesActive: (active: boolean) => void;
   onCommit: (testimonialId: string, size: GridSizeOverride) => void;
+}
+
+/** Per-card appearance when the quote is selected (cell size = drag handles only). */
+export interface GridQuoteAppearanceControl {
+  fontScale: QuoteFontScaleOverride;
+  onFontScaleChange: (scale: QuoteFontScaleOverride) => void;
+  cardSurface: CardSurfaceOverride;
+  onCardSurfaceChange: (surface: CardSurfaceOverride) => void;
+  /** Swap with neighbor in testimonials order (wraps). Omitted when list reordering unavailable. */
+  onSwapQuoteOrder?: (delta: -1 | 1) => void;
+  quoteCountInList: number;
 }
 
 interface GridQuoteProps {
@@ -46,8 +75,12 @@ interface GridQuoteProps {
   /** Opens quote edit modal on double-click (grid and single-column layout). */
   onRequestEdit?: (id: string) => void;
   cardTheme: CardThemeId;
+  /** When true, allow automatic hyphenation in quote text across lines. */
+  quoteHyphenation?: boolean;
   /** When set and the card is selected, show grid resize handles (grid layout only). */
   gridResize?: GridQuoteResizeControl;
+  /** When set and the card is selected, show compact appearance controls on the card. */
+  appearanceControl?: GridQuoteAppearanceControl;
 }
 
 export function GridQuote({
@@ -64,7 +97,9 @@ export function GridQuote({
   isSelected,
   onRequestEdit,
   cardTheme,
+  quoteHyphenation = false,
   gridResize,
+  appearanceControl,
 }: GridQuoteProps) {
   const displayedMetadata = getDisplayedMetadataEntries(testimonial, metadataToggles, metadataOrder);
   const tokens = getCardThemeTokens(cardTheme);
@@ -131,6 +166,11 @@ export function GridQuote({
   } | null>(null);
 
   const showResizeHandles = Boolean(gridResize && isSelected && gridRow && gridColumn);
+  const showAppearanceChrome = Boolean(isSelected && appearanceControl);
+
+  const fontScaleLabel =
+    QUOTE_FONT_SCALE_OPTIONS.find((o) => o.value === (appearanceControl?.fontScale ?? 'auto'))
+      ?.label ?? 'Auto';
 
   const cellStyle: CSSProperties = {
     ...styleConfig.grid.cell,
@@ -150,6 +190,7 @@ export function GridQuote({
     'grid-quote',
     isSelected ? 'grid-quote-selected' : '',
     showResizeHandles ? 'grid-quote--resize-handles' : '',
+    showAppearanceChrome ? 'grid-quote--appearance' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -158,6 +199,8 @@ export function GridQuote({
   const textStyle: CSSProperties = {
     color: tokens.quoteColor,
     fontWeight: tokens.quoteFontWeight,
+    hyphens: quoteHyphenation ? 'auto' : 'none',
+    WebkitHyphens: quoteHyphenation ? 'auto' : 'none',
     ...(isAuto && autoFontPx != null
       ? { fontSize: `${autoFontPx}px`, lineHeight: AUTO_FIT_LINE_HEIGHT }
       : {}),
@@ -244,7 +287,8 @@ export function GridQuote({
       onClick={
         onSelect
           ? (ev) => {
-              if ((ev.target as HTMLElement).closest('.grid-quote__resize-handle')) return;
+              const t = ev.target as HTMLElement;
+              if (t.closest('.grid-quote__resize-handle, .grid-quote__chrome')) return;
               onSelect();
             }
           : undefined
@@ -261,6 +305,104 @@ export function GridQuote({
       }
       lang="en"
     >
+      {showAppearanceChrome && appearanceControl ? (
+        <div
+          className="grid-quote__chrome"
+          role="toolbar"
+          aria-label="Quote appearance"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <div
+            className="grid-quote__chrome-themes"
+            role="radiogroup"
+            aria-label="Card theme"
+          >
+            {CARD_THEME_IDS.map((tid) => {
+              const pressed =
+                appearanceControl.cardSurface === 'inherit'
+                  ? cardTheme === tid
+                  : appearanceControl.cardSurface === tid;
+              return (
+                <button
+                  key={tid}
+                  type="button"
+                  className={`grid-quote__chrome-theme-seg ${pressed ? 'grid-quote__chrome-theme-seg--active' : ''}`}
+                  role="radio"
+                  aria-checked={pressed}
+                  aria-label={`${CARD_THEME_LABELS[tid]} card theme`}
+                  title={CARD_THEME_LABELS[tid]}
+                  onClick={() => appearanceControl.onCardSurfaceChange(tid)}
+                >
+                  <span
+                    className={`grid-quote__chrome-theme-icon grid-quote__chrome-theme-icon--${tid}`}
+                    aria-hidden
+                  />
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="grid-quote__chrome-size" role="group" aria-label="Text size">
+            <button
+              type="button"
+              className="grid-quote__chrome-step"
+              aria-label="Smaller text"
+              onClick={() =>
+                appearanceControl.onFontScaleChange(
+                  stepQuoteFontScale(appearanceControl.fontScale, -1)
+                )
+              }
+            >
+              −
+            </button>
+            <span className="grid-quote__chrome-size-label" aria-live="polite">
+              {fontScaleLabel}
+            </span>
+            <button
+              type="button"
+              className="grid-quote__chrome-step"
+              aria-label="Larger text"
+              onClick={() =>
+                appearanceControl.onFontScaleChange(
+                  stepQuoteFontScale(appearanceControl.fontScale, 1)
+                )
+              }
+            >
+              +
+            </button>
+          </div>
+
+          {appearanceControl.onSwapQuoteOrder &&
+          appearanceControl.quoteCountInList >= 2 ? (
+            <div
+              className="grid-quote__chrome-order"
+              role="group"
+              aria-label="Quote order in list"
+            >
+              <button
+                type="button"
+                className="grid-quote__chrome-step grid-quote__chrome-order-btn"
+                aria-label="Move earlier in quote order (wraps to end)"
+                title="Earlier — wraps"
+                onClick={() => appearanceControl.onSwapQuoteOrder?.(-1)}
+              >
+                ↑
+              </button>
+              <span className="grid-quote__chrome-order-label">Order</span>
+              <button
+                type="button"
+                className="grid-quote__chrome-step grid-quote__chrome-order-btn"
+                aria-label="Move later in quote order (wraps to start)"
+                title="Later — wraps"
+                onClick={() => appearanceControl.onSwapQuoteOrder?.(1)}
+              >
+                ↓
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <div
         className="grid-quote__body"
         title={canEditInModal ? 'Double-click to edit quote and metadata' : undefined}
@@ -295,34 +437,19 @@ export function GridQuote({
           ))}
         </div>
       </div>
-      {showResizeHandles ? (
-        <>
-          <div
-            className="grid-quote__resize-handle grid-quote__resize-handle--e"
-            aria-label="Resize quote width on grid"
-            onPointerDown={startResizeDrag('e')}
-            onPointerMove={onResizePointerMove}
-            onPointerUp={(ev) => finishResizeDrag(ev, true)}
-            onPointerCancel={(ev) => finishResizeDrag(ev, false)}
-          />
-          <div
-            className="grid-quote__resize-handle grid-quote__resize-handle--s"
-            aria-label="Resize quote height on grid"
-            onPointerDown={startResizeDrag('s')}
-            onPointerMove={onResizePointerMove}
-            onPointerUp={(ev) => finishResizeDrag(ev, true)}
-            onPointerCancel={(ev) => finishResizeDrag(ev, false)}
-          />
-          <div
-            className="grid-quote__resize-handle grid-quote__resize-handle--se"
-            aria-label="Resize quote width and height on grid"
-            onPointerDown={startResizeDrag('se')}
-            onPointerMove={onResizePointerMove}
-            onPointerUp={(ev) => finishResizeDrag(ev, true)}
-            onPointerCancel={(ev) => finishResizeDrag(ev, false)}
-          />
-        </>
-      ) : null}
+      {showResizeHandles
+        ? GRID_RESIZE_HANDLES.map(({ axis, label }) => (
+            <div
+              key={axis}
+              className={`grid-quote__resize-handle grid-quote__resize-handle--${axis}`}
+              aria-label={label}
+              onPointerDown={startResizeDrag(axis)}
+              onPointerMove={onResizePointerMove}
+              onPointerUp={(ev) => finishResizeDrag(ev, true)}
+              onPointerCancel={(ev) => finishResizeDrag(ev, false)}
+            />
+          ))
+        : null}
     </div>
   );
 }
