@@ -131,7 +131,12 @@ export function generateEmbedCode(
     styleConfig.typography.fontFamily +
     '; padding: 0; margin: 0; background: transparent; }\n';
 
-  if (layoutMode === 'stack') {
+  const stackLike =
+    layoutMode === 'stack' ||
+    layoutMode === 'carousel_deck' ||
+    layoutMode === 'reveal_deck';
+
+  if (stackLike) {
     html += '  .testimonial-stack-embed { display: flex; flex-direction: column; gap: 1rem; width: 100%; }\n';
     html +=
       '  .testimonial-card { border-radius: 8px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between; }\n';
@@ -176,7 +181,7 @@ export function generateEmbedCode(
   html += '</style>\n';
   html += '</head>\n<body>\n';
 
-  if (layoutMode === 'stack') {
+  if (stackLike) {
     html += '<div class="testimonial-stack-embed">\n';
     testimonials.forEach((testimonial) => {
       const metadata = [
@@ -481,7 +486,12 @@ export async function generateSVG(
 
   const { quote: quoteFont, meta: metaFont } = await loadOutlineFonts();
 
-  if (layoutMode === 'stack') {
+  const stackLikeSvg =
+    layoutMode === 'stack' ||
+    layoutMode === 'carousel_deck' ||
+    layoutMode === 'reveal_deck';
+
+  if (stackLikeSvg) {
     const cardHeight = INLINE_CARD_HEIGHT;
     const width = 800;
     const height = SVG_PADDING * 2 + testimonials.length * (cardHeight + CARD_GAP) - CARD_GAP;

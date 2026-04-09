@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   LayoutMode,
+  LAYOUT_MODE_LABELS,
   Testimonial,
   GridSizeOverride,
   GridAspectRatio,
@@ -51,6 +52,8 @@ export interface SidebarProps {
   onExportSVG: () => void;
   onCopyEmbed: () => void;
   onDownloadHTML: () => void;
+  carouselAutoplay?: boolean;
+  setCarouselAutoplay?: (value: boolean) => void;
 }
 
 export function Sidebar({
@@ -86,6 +89,8 @@ export function Sidebar({
   onExportSVG,
   onCopyEmbed,
   onDownloadHTML,
+  carouselAutoplay = false,
+  setCarouselAutoplay,
 }: SidebarProps) {
   const [hoveredGridCell, setHoveredGridCell] = useState<{ col: number; row: number } | null>(null);
 
@@ -133,22 +138,32 @@ export function Sidebar({
 
       <section className="sidebar-section">
         <h3 className="sidebar-heading">Layout</h3>
-        <div className="layout-tabs">
-          <button
-            type="button"
-            className={`layout-tab ${layoutMode === 'grid' ? 'layout-tab-active' : ''}`}
-            onClick={() => setLayoutMode('grid')}
-          >
-            Grid
-          </button>
-          <button
-            type="button"
-            className={`layout-tab ${layoutMode === 'stack' ? 'layout-tab-active' : ''}`}
-            onClick={() => setLayoutMode('stack')}
-          >
-            Stack
-          </button>
+        <div className="layout-tabs layout-tabs--grid" role="tablist" aria-label="Layout mode">
+          {(['grid', 'stack', 'carousel_deck', 'reveal_deck'] as const satisfies readonly LayoutMode[]).map(
+            (mode) => (
+              <button
+                key={mode}
+                type="button"
+                role="tab"
+                aria-selected={layoutMode === mode}
+                className={`layout-tab ${layoutMode === mode ? 'layout-tab-active' : ''}`}
+                onClick={() => setLayoutMode(mode)}
+              >
+                {LAYOUT_MODE_LABELS[mode]}
+              </button>
+            )
+          )}
         </div>
+        {layoutMode === 'carousel_deck' && setCarouselAutoplay ? (
+          <label className="layout-carousel-autoplay">
+            <input
+              type="checkbox"
+              checked={carouselAutoplay}
+              onChange={(e) => setCarouselAutoplay(e.target.checked)}
+            />
+            Autoplay (pauses on hover or focus)
+          </label>
+        ) : null}
         {layoutMode === 'grid' ? (
           <div className="layout-grid-editor">
             <div className="layout-grid-editor-picker">
@@ -239,7 +254,12 @@ export function Sidebar({
         <div className="sidebar-section-heading-row">
           <h3 className="sidebar-heading">Quotes</h3>
           <div className="sidebar-quotes-actions">
-            {(layoutMode === 'grid' || layoutMode === 'stack') && selectedQuoteId && onEditSelectedQuote ? (
+            {(layoutMode === 'grid' ||
+              layoutMode === 'stack' ||
+              layoutMode === 'carousel_deck' ||
+              layoutMode === 'reveal_deck') &&
+            selectedQuoteId &&
+            onEditSelectedQuote ? (
               <button
                 type="button"
                 className="quote-list-edit-selected"

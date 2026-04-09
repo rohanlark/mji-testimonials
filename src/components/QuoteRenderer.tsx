@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useCallback } from 'react';
+import { useState, useRef, useMemo, useCallback, type ReactNode } from 'react';
 import { CSSProperties } from 'react';
 import {
   Testimonial,
@@ -31,6 +31,17 @@ import {
 import { normalizeQuoteForLayout } from '../lib/quoteNormalize';
 import { swapQuoteWithNeighborWrapped } from '../lib/swapQuoteInOrder';
 import { exportToSVG, generateEmbedCode, downloadFile, copyToClipboard } from '../lib/exportUtils';
+import { CarouselDeckLayout } from './CarouselDeckLayout';
+import { RevealDeckLayout } from './RevealDeckLayout';
+
+export function DefaultRevealDeckContent() {
+  return (
+    <div className="deck-reveal__placeholder">
+      <p className="deck-reveal__stat">92%</p>
+      <p className="deck-reveal__lede">Year-one retention among workers who completed the program (spike placeholder).</p>
+    </div>
+  );
+}
 
 export interface TestimonialPreviewProps {
   testimonials: Testimonial[];
@@ -59,6 +70,10 @@ export interface TestimonialPreviewProps {
   onSwapQuoteOrder?: (testimonialId: string, delta: -1 | 1) => void;
   /** When true, quote text may hyphenate across line breaks. */
   quoteHyphenation?: boolean;
+  /** Carousel deck: optional autoplay (pauses on hover / focus inside deck). */
+  carouselAutoplay?: boolean;
+  /** Reveal deck: content shown after all cards are dismissed. */
+  revealDeckContent?: ReactNode;
 }
 
 /** Renders only the testimonial preview (stack or grid). Used when layout is main | sidebar. */
@@ -82,6 +97,8 @@ export function TestimonialPreview({
   onCardSurfaceChange,
   onSwapQuoteOrder,
   quoteHyphenation = false,
+  carouselAutoplay = false,
+  revealDeckContent,
 }: TestimonialPreviewProps) {
   const gridContainerRef = useRef<HTMLDivElement>(null);
   const [resizePreview, setResizePreview] = useState<{
@@ -174,6 +191,46 @@ export function TestimonialPreview({
           />
         ))}
       </div>
+    );
+  }
+
+  if (layoutMode === 'carousel_deck') {
+    return (
+      <CarouselDeckLayout
+        testimonials={testimonials}
+        metadataToggles={metadataToggles}
+        metadataOrder={metadataOrder}
+        fontScaleOverrides={fontScaleOverrides}
+        globalCardTheme={globalCardTheme}
+        cardSurfaceOverrides={cardSurfaceOverrides}
+        selectedQuoteId={selectedQuoteId}
+        onSelectQuote={onSelectQuote}
+        onUpdateTestimonial={onUpdateTestimonial}
+        onRequestEditQuote={onRequestEditQuote}
+        quoteHyphenation={quoteHyphenation}
+        makeAppearanceControl={makeAppearanceControl}
+        autoplay={carouselAutoplay}
+      />
+    );
+  }
+
+  if (layoutMode === 'reveal_deck') {
+    return (
+      <RevealDeckLayout
+        testimonials={testimonials}
+        metadataToggles={metadataToggles}
+        metadataOrder={metadataOrder}
+        fontScaleOverrides={fontScaleOverrides}
+        globalCardTheme={globalCardTheme}
+        cardSurfaceOverrides={cardSurfaceOverrides}
+        selectedQuoteId={selectedQuoteId}
+        onSelectQuote={onSelectQuote}
+        onUpdateTestimonial={onUpdateTestimonial}
+        onRequestEditQuote={onRequestEditQuote}
+        quoteHyphenation={quoteHyphenation}
+        makeAppearanceControl={makeAppearanceControl}
+        revealContent={revealDeckContent ?? <DefaultRevealDeckContent />}
+      />
     );
   }
 
@@ -308,6 +365,7 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
   >({});
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
+  const [carouselAutoplay, setCarouselAutoplay] = useState(false);
 
   const editingTestimonial =
     editingQuoteId !== null ? testimonials.find((t) => t.id === editingQuoteId) ?? null : null;
@@ -476,6 +534,8 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
           onCardSurfaceChange={setCardSurfaceOverride}
           onSwapQuoteOrder={handleSwapQuoteOrder}
           quoteHyphenation={quoteHyphenation}
+          carouselAutoplay={carouselAutoplay}
+          revealDeckContent={<DefaultRevealDeckContent />}
         />
       </div>
       {onUpdateTestimonial ? (
@@ -520,6 +580,8 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
         setShowGridLines={setShowGridLines}
         quoteHyphenation={quoteHyphenation}
         setQuoteHyphenation={setQuoteHyphenation}
+        carouselAutoplay={carouselAutoplay}
+        setCarouselAutoplay={setCarouselAutoplay}
         onExportSVG={handleExportSVG}
         onCopyEmbed={handleCopyEmbed}
         onDownloadHTML={handleDownloadHTML}

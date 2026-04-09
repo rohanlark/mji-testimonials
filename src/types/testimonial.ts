@@ -93,7 +93,15 @@ export const METADATA_FIELD_LABELS: Record<MetadataFieldKey, string> = {
   occupation: 'Occupation',
 };
 
-export type LayoutMode = 'stack' | 'grid';
+/** Grid/stack are static layouts; deck modes are interactive stacks (see spike plan). */
+export type LayoutMode = 'stack' | 'grid' | 'carousel_deck' | 'reveal_deck';
+
+export const LAYOUT_MODE_LABELS: Record<LayoutMode, string> = {
+  grid: 'Grid',
+  stack: 'Stack',
+  carousel_deck: 'Carousel',
+  reveal_deck: 'Reveal',
+};
 
 /** Named card surface themes (colours and type weights are defined in `cardThemes.ts`). */
 export const CARD_THEME_IDS = ['light', 'dark', 'teal'] as const;

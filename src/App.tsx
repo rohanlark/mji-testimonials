@@ -15,7 +15,7 @@ import {
   CardSurfaceOverride,
   GlobalCardThemeId,
 } from './types/testimonial';
-import { TestimonialPreview } from './components/QuoteRenderer';
+import { TestimonialPreview, DefaultRevealDeckContent } from './components/QuoteRenderer';
 import { Sidebar } from './components/Sidebar';
 import { QuoteEditModal } from './components/QuoteEditModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -51,6 +51,7 @@ function App() {
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
   const [pasteModalOpen, setPasteModalOpen] = useState(false);
+  const [carouselAutoplay, setCarouselAutoplay] = useState(false);
 
   const editingTestimonial =
     editingQuoteId !== null ? testimonials.find((t) => t.id === editingQuoteId) ?? null : null;
@@ -357,6 +358,8 @@ function App() {
                     onCardSurfaceChange={setCardSurfaceOverride}
                     onSwapQuoteOrder={handleSwapQuoteOrder}
                     quoteHyphenation={quoteHyphenation}
+                    carouselAutoplay={carouselAutoplay}
+                    revealDeckContent={<DefaultRevealDeckContent />}
                   />
                 </ErrorBoundary>
               </div>
@@ -483,6 +486,8 @@ function App() {
             onExportSVG={handleExportSVG}
             onCopyEmbed={handleCopyEmbed}
             onDownloadHTML={handleDownloadHTML}
+            carouselAutoplay={carouselAutoplay}
+            setCarouselAutoplay={setCarouselAutoplay}
           />
         </div>
       ) : (
