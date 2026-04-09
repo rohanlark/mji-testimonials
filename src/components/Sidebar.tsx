@@ -117,6 +117,27 @@ export function Sidebar({
     resolvedAutoSpanById[p.testimonial.id] = `${p.colSpan}×${p.rowSpan}`;
   }
 
+  const cardThemeRow = (
+    <div className="layout-theme-row">
+      <label htmlFor="global-card-theme" className="layout-aspect-label">
+        Theme
+      </label>
+      <select
+        id="global-card-theme"
+        className="layout-aspect-select"
+        value={globalCardTheme}
+        onChange={(e) => setGlobalCardTheme(e.target.value as CardThemeId)}
+        aria-label="Default card theme"
+      >
+        {CARD_THEME_IDS.map((id) => (
+          <option key={id} value={id}>
+            {CARD_THEME_LABELS[id]}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
   return (
     <aside className="sidebar">
       <section className="sidebar-section">
@@ -137,16 +158,14 @@ export function Sidebar({
             Stack
           </button>
         </div>
-        {layoutMode === 'grid' && (
-          <>
-            <div className="layout-grid-selector" role="group" aria-label="Grid size">
-              <div className="layout-grid-selector-header">
-                <span className="layout-grid-selector-label">Grid</span>
-                <span className="layout-grid-selector-size" aria-live="polite">
-                  {gridDimensions.columns}×{gridDimensions.rows}
-                </span>
-              </div>
-              <div className="layout-grid-selector-grid">
+        {layoutMode === 'grid' ? (
+          <div className="layout-grid-editor">
+            <div className="layout-grid-editor-picker">
+              <div
+                className="layout-grid-selector-grid"
+                role="group"
+                aria-label="Grid size"
+              >
                 {[0, 1, 2, 3].map((row) =>
                   [0, 1, 2, 3].map((col) => {
                     const cols = col + 1;
@@ -182,67 +201,50 @@ export function Sidebar({
                 )}
               </div>
             </div>
-            <div className="layout-aspect-row">
-              <label htmlFor="grid-aspect-ratio" className="layout-aspect-label">
-                Aspect ratio
-              </label>
-              <select
-                id="grid-aspect-ratio"
-                className="layout-aspect-select"
-                value={gridAspectRatio}
-                onChange={(e) => setGridAspectRatio(e.target.value as GridAspectRatio)}
-                aria-label="Grid aspect ratio"
-              >
-                {GRID_ASPECT_RATIO_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              {gridAspectRatio !== 'fit' && gridAspectRatio !== '1:1' && (
-                <button
-                  type="button"
-                  className="layout-flip-btn layout-flip-btn-icon"
-                  onClick={() => setGridAspectRatioFlipped(!gridAspectRatioFlipped)}
-                  aria-label="Flip aspect ratio"
-                  title="Flip aspect ratio (e.g. 16∶9 → 9∶16)"
+            <div className="layout-grid-editor-settings">
+              <div className="layout-aspect-row">
+                <label htmlFor="grid-aspect-ratio" className="layout-aspect-label">
+                  Aspect ratio
+                </label>
+                <select
+                  id="grid-aspect-ratio"
+                  className="layout-aspect-select"
+                  value={gridAspectRatio}
+                  onChange={(e) => setGridAspectRatio(e.target.value as GridAspectRatio)}
+                  aria-label="Grid aspect ratio"
                 >
-                  ⇄
-                </button>
-              )}
+                  {GRID_ASPECT_RATIO_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                {gridAspectRatio !== 'fit' && gridAspectRatio !== '1:1' && (
+                  <button
+                    type="button"
+                    className="layout-flip-btn layout-flip-btn-icon"
+                    onClick={() => setGridAspectRatioFlipped(!gridAspectRatioFlipped)}
+                    aria-label="Flip aspect ratio"
+                    title="Flip aspect ratio (e.g. 16∶9 → 9∶16)"
+                  >
+                    ⇄
+                  </button>
+                )}
+              </div>
+              {cardThemeRow}
+              <label className="layout-grid-lines-toggle">
+                <span className="layout-grid-lines-label">Show grid lines</span>
+                <input
+                  type="checkbox"
+                  checked={showGridLines}
+                  onChange={(e) => setShowGridLines(e.target.checked)}
+                />
+              </label>
             </div>
-            <label className="layout-grid-lines-toggle">
-              <input
-                type="checkbox"
-                checked={showGridLines}
-                onChange={(e) => setShowGridLines(e.target.checked)}
-              />
-              Show grid lines
-            </label>
-          </>
+          </div>
+        ) : (
+          <div className="layout-stack-settings">{cardThemeRow}</div>
         )}
-      </section>
-
-      <section className="sidebar-section">
-        <h3 className="sidebar-heading">Card colour</h3>
-        <p className="sidebar-muted sidebar-section-hint">
-          Default for all cards. Override per quote in the list below.
-        </p>
-        <label htmlFor="global-card-theme" className="card-theme-label">
-          <span className="card-theme-label-text">Theme</span>
-          <select
-            id="global-card-theme"
-            className="card-theme-select"
-            value={globalCardTheme}
-            onChange={(e) => setGlobalCardTheme(e.target.value as CardThemeId)}
-          >
-            {CARD_THEME_IDS.map((id) => (
-              <option key={id} value={id}>
-                {CARD_THEME_LABELS[id]}
-              </option>
-            ))}
-          </select>
-        </label>
       </section>
 
       <section className="sidebar-section">
@@ -303,7 +305,7 @@ export function Sidebar({
       </section>
 
       <section className="sidebar-section">
-        <h3 className="sidebar-heading">Metadata order</h3>
+        <h3 className="sidebar-heading">Metadata</h3>
         <MetadataOrderList
           order={metadataOrder}
           onReorder={setMetadataOrder}

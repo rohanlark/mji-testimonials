@@ -96,7 +96,7 @@ export const METADATA_FIELD_LABELS: Record<MetadataFieldKey, string> = {
 export type LayoutMode = 'stack' | 'grid';
 
 /** Named card surface themes (colours and type weights are defined in `cardThemes.ts`). */
-export const CARD_THEME_IDS = ['light', 'dark', 'teal'] as const;
+export const CARD_THEME_IDS = ['light', 'dark', 'teal', 'oftail'] as const;
 export type CardThemeId = (typeof CARD_THEME_IDS)[number];
 
 /** Per-quote surface: follow global theme, or pin to a named theme. */
@@ -106,6 +106,7 @@ export const CARD_THEME_LABELS: Record<CardThemeId, string> = {
   light: 'Light',
   dark: 'Dark',
   teal: 'Teal',
+  oftail: 'Oftail',
 };
 
 export type ExportFormat = 'svg' | 'embed';

@@ -88,7 +88,6 @@ export function TestimonialPreview({
             onRequestEdit={onUpdateTestimonial ? onRequestEditQuote : undefined}
             fontScaleOverride={fontScaleOverrides[testimonial.id]}
             cardTheme={resolveCardThemeId(globalCardTheme, cardSurfaceOverrides[testimonial.id])}
-            quoteVariant="stack"
             onSelect={
               onSelectQuote
                 ? () =>
@@ -170,7 +169,6 @@ export function TestimonialPreview({
               globalCardTheme,
               cardSurfaceOverrides[placement.testimonial.id]
             )}
-            quoteVariant="grid"
             onSelect={
               onSelectQuote
                 ? () =>

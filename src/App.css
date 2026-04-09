@@ -347,27 +347,31 @@
 .layout-grid-lines-toggle {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.5rem;
-  margin-top: 0.75rem;
+  margin: 0;
   font-size: 0.8125rem;
   color: #444;
   cursor: pointer;
   user-select: none;
 }
 
+.layout-grid-lines-label {
+  flex: 1;
+  min-width: 0;
+}
+
 .layout-grid-lines-toggle input {
+  flex-shrink: 0;
   cursor: pointer;
 }
 
-/* Grid card selected state (matches layout tab / sidebar row highlight) */
+/* Selected card: ring only so theme (surface + type) stays visible */
 .grid-quote-selected {
-  background: #007bff !important;
-  border-color: #007bff !important;
-  color: #fff;
-}
-
-.grid-quote-selected [style*="color"] {
-  color: inherit;
+  position: relative;
+  z-index: 2;
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
 }
 
 /* Grid testimonial cards: container queries + fluid type (English v1) */
@@ -420,10 +424,6 @@
   }
 }
 
-.grid-quote-selected .grid-quote__text {
-  color: inherit;
-}
-
 .grid-quote__metadata {
   flex-shrink: 0;
 }
@@ -434,6 +434,12 @@
   flex-direction: column;
   gap: 1rem;
   width: 100%;
+}
+
+.testimonial-stack .grid-quote {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 /* Sidebar - pinned right, separate column */
@@ -520,26 +526,37 @@
   border-color: #0056b3;
 }
 
-.layout-grid-selector {
+.layout-grid-editor {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem 1rem;
   margin-top: 0.75rem;
 }
 
-.layout-grid-selector-header {
+.layout-grid-editor-picker {
+  flex-shrink: 0;
+}
+
+.layout-grid-editor-settings {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.layout-stack-settings {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.layout-theme-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.35rem;
-}
-
-.layout-grid-selector-label {
-  font-size: 0.8rem;
-  color: #666;
-}
-
-.layout-grid-selector-size {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #333;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
 }
 
 .layout-grid-selector-grid {
@@ -615,7 +632,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 0.75rem;
+  margin-top: 0;
   flex-wrap: nowrap;
 }
 
@@ -636,7 +653,7 @@
 }
 
 .layout-flip-btn {
-  margin-top: 0.5rem;
+  margin-top: 0;
   padding: 0.4rem 0.75rem;
   border: 1px solid #ddd;
   background: #f5f5f5;
@@ -693,31 +710,6 @@
   margin: 0;
   font-size: 0.875rem;
   color: #999;
-}
-
-.sidebar-section-hint {
-  margin-top: 0.25rem;
-  margin-bottom: 0.75rem;
-}
-
-.card-theme-label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.card-theme-label-text {
-  font-size: 0.8125rem;
-  color: #444;
-}
-
-.card-theme-select {
-  max-width: 100%;
-  padding: 0.4rem 0.5rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 0.8125rem;
-  background: #fff;
 }
 
 /* Quote list in sidebar */

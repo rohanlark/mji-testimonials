@@ -5,8 +5,8 @@ export interface CardThemeTokens {
   border: string;
   boxShadow: string;
   quoteColor: string;
-  quoteFontWeightGrid: number;
-  quoteFontWeightStack: number;
+  /** Same for grid and stack; vary only between themes (colours). */
+  quoteFontWeight: number;
   metadataColor: string;
   metadataFontWeight: number;
   /** Stack layout: border-top between quote and metadata. */
@@ -19,8 +19,7 @@ const CARD_THEMES: Record<CardThemeId, CardThemeTokens> = {
     border: '1px solid #E8E8E8',
     boxShadow: '0 1px 32px rgba(0, 0, 0, 0.03)',
     quoteColor: '#002C3E',
-    quoteFontWeightGrid: 400,
-    quoteFontWeightStack: 600,
+    quoteFontWeight: 400,
     metadataColor: '#002C3E',
     metadataFontWeight: 500,
     metadataDividerColor: '#E8E8E8',
@@ -30,8 +29,7 @@ const CARD_THEMES: Record<CardThemeId, CardThemeTokens> = {
     border: '1px solid #2a3f4d',
     boxShadow: '0 1px 24px rgba(0, 0, 0, 0.25)',
     quoteColor: '#f0f4f6',
-    quoteFontWeightGrid: 400,
-    quoteFontWeightStack: 600,
+    quoteFontWeight: 400,
     metadataColor: '#c8d4dc',
     metadataFontWeight: 500,
     metadataDividerColor: '#3d5260',
@@ -41,11 +39,20 @@ const CARD_THEMES: Record<CardThemeId, CardThemeTokens> = {
     border: '1px solid #1b9e8e',
     boxShadow: '0 1px 24px rgba(27, 158, 142, 0.12)',
     quoteColor: '#063d38',
-    quoteFontWeightGrid: 400,
-    quoteFontWeightStack: 600,
+    quoteFontWeight: 400,
     metadataColor: '#0a5249',
     metadataFontWeight: 500,
     metadataDividerColor: '#9ccbc4',
+  },
+  oftail: {
+    backgroundColor: '#f7f2eb',
+    border: '1px solid #b8956a',
+    boxShadow: '0 1px 24px rgba(90, 60, 40, 0.08)',
+    quoteColor: '#3a2f26',
+    quoteFontWeight: 400,
+    metadataColor: '#5c4a3d',
+    metadataFontWeight: 500,
+    metadataDividerColor: '#d9cfc2',
   },
 };
 

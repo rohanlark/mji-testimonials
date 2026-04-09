@@ -1,4 +1,4 @@
-import { CSSProperties } from 'react';
+import { CSSProperties, useLayoutEffect, useRef, useState } from 'react';
 import {
   Testimonial,
   MetadataToggles,
@@ -10,7 +10,8 @@ import { styleConfig } from '../lib/styleConfig';
 import { getCardThemeTokens } from '../lib/cardThemes';
 import { getDisplayedMetadataEntries } from '../lib/metadataNormalize';
 import { normalizeQuoteForLayout } from '../lib/quoteNormalize';
-import { effectiveQuoteScale, lineHeightForQuoteScale } from '../lib/gridQuoteFontScale';
+import { lineHeightForQuoteScale } from '../lib/gridQuoteFontScale';
+import { AUTO_FIT_LINE_HEIGHT, measureAutoQuoteFontSizePx } from '../lib/fitGridQuoteFont';
 
 interface GridQuoteProps {
   testimonial: Testimonial;
@@ -27,8 +28,6 @@ interface GridQuoteProps {
   /** Opens quote edit modal on double-click (grid and single-column layout). */
   onRequestEdit?: (id: string) => void;
   cardTheme: CardThemeId;
-  /** Stack uses slightly heavier quote weight than grid (see theme tokens). */
-  quoteVariant: 'grid' | 'stack';
 }
 
 export function GridQuote({
@@ -45,15 +44,58 @@ export function GridQuote({
   isSelected,
   onRequestEdit,
   cardTheme,
-  quoteVariant,
 }: GridQuoteProps) {
   const displayedMetadata = getDisplayedMetadataEntries(testimonial, metadataToggles, metadataOrder);
   const tokens = getCardThemeTokens(cardTheme);
 
-  const scale = effectiveQuoteScale(colSpan, rowSpan, fontScaleOverride);
-  const lineHeight = lineHeightForQuoteScale(scale);
+  const isAuto = fontScaleOverride === undefined || fontScaleOverride === 'auto';
+  const manualScale = isAuto ? 1 : fontScaleOverride;
+  const lineHeightCss = isAuto ? AUTO_FIT_LINE_HEIGHT : lineHeightForQuoteScale(manualScale);
 
   const displayQuote = normalizeQuoteForLayout(testimonial.quote);
+  const metadataSig = displayedMetadata.map((e) => `${e.key}:${e.value}`).join('|');
+
+  const innerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLDivElement>(null);
+  const [autoFontPx, setAutoFontPx] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    if (!isAuto) {
+      setAutoFontPx(null);
+      return;
+    }
+
+    const inner = innerRef.current;
+    const text = textRef.current;
+    if (!inner || !text) return;
+
+    let cancelled = false;
+    let ro: ResizeObserver | null = null;
+
+    const measure = () => {
+      if (cancelled) return;
+      const w = inner.clientWidth;
+      const h = inner.clientHeight;
+      const px = measureAutoQuoteFontSizePx(text, w, h, AUTO_FIT_LINE_HEIGHT);
+      setAutoFontPx(px);
+    };
+
+    const schedule = () => {
+      requestAnimationFrame(measure);
+    };
+
+    void document.fonts.ready.then(() => {
+      if (cancelled) return;
+      schedule();
+      ro = new ResizeObserver(schedule);
+      ro.observe(inner);
+    });
+
+    return () => {
+      cancelled = true;
+      ro?.disconnect();
+    };
+  }, [isAuto, displayQuote, metadataSig, colSpan, rowSpan, testimonial.id]);
 
   const cellStyle: CSSProperties = {
     ...styleConfig.grid.cell,
@@ -65,15 +107,20 @@ export function GridQuote({
     ...(gridRow && { gridRow }),
     ...(gridColumn && { gridColumn }),
     ...(onSelect && { cursor: 'pointer' }),
-    ['--grid-quote-scale' as string]: scale,
-    ['--grid-quote-line-height' as string]: lineHeight,
+    ['--grid-quote-scale' as string]: manualScale,
+    ['--grid-quote-line-height' as string]: lineHeightCss,
   };
-
-  const quoteWeight =
-    quoteVariant === 'stack' ? tokens.quoteFontWeightStack : tokens.quoteFontWeightGrid;
 
   const rootClass = ['grid-quote', isSelected ? 'grid-quote-selected' : ''].filter(Boolean).join(' ');
   const canEditInModal = Boolean(onUpdateTestimonial && onRequestEdit);
+
+  const textStyle: CSSProperties = {
+    color: tokens.quoteColor,
+    fontWeight: tokens.quoteFontWeight,
+    ...(isAuto && autoFontPx != null
+      ? { fontSize: `${autoFontPx}px`, lineHeight: AUTO_FIT_LINE_HEIGHT }
+      : {}),
+  };
 
   return (
     <div
@@ -82,7 +129,16 @@ export function GridQuote({
       role={onSelect ? 'button' : undefined}
       tabIndex={onSelect ? 0 : undefined}
       onClick={onSelect ? () => onSelect() : undefined}
-      onKeyDown={onSelect ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(); } } : undefined}
+      onKeyDown={
+        onSelect
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onSelect();
+              }
+            }
+          : undefined
+      }
       lang="en"
     >
       <div
@@ -98,12 +154,8 @@ export function GridQuote({
             : undefined
         }
       >
-        <div className="grid-quote__inner">
-          <div
-            className="grid-quote__text"
-            lang="en"
-            style={{ color: tokens.quoteColor, fontWeight: quoteWeight }}
-          >
+        <div className="grid-quote__inner" ref={innerRef}>
+          <div className="grid-quote__text" ref={textRef} lang="en" style={textStyle}>
             {displayQuote}
           </div>
         </div>

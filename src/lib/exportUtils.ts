@@ -19,7 +19,8 @@ import { calculateGridLayout, calculateGridRows } from './gridLayout';
 import { formatOccupationForDisplay, getDisplayedMetadataEntries } from './metadataNormalize';
 import { normalizeQuoteForLayout } from './quoteNormalize';
 import { styleConfig } from './styleConfig';
-import { effectiveQuoteScale, lineHeightForQuoteScale } from './gridQuoteFontScale';
+import { lineHeightForQuoteScale } from './gridQuoteFontScale';
+import { AUTO_FIT_LINE_HEIGHT } from './fitGridQuoteFont';
 
 import type { Font as OpentypeFont } from 'opentype.js';
 
@@ -140,7 +141,7 @@ export function generateEmbedCode(
     html +=
       '  .grid-container { display: grid; gap: 1rem; width: 100%; align-content: start; }\n';
     html +=
-      '  .grid-cell { border-radius: 8px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between; container-type: inline-size; overflow: visible; }\n';
+      '  .grid-cell { border-radius: 8px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between; container-type: size; overflow: visible; }\n';
     html +=
       '  .grid-quote__inner { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }\n';
     html +=
@@ -153,6 +154,8 @@ export function generateEmbedCode(
       '; text-decoration: none; overflow-wrap: anywhere; hyphens: auto; line-height: var(--grid-quote-line-height, 1.5); ';
     html +=
       'font-size: calc(clamp(12px, 0.8rem + 2.25cqi, 1.28rem) * var(--grid-quote-scale, 1)); }\n';
+    html +=
+      '  .grid-cell[data-auto-quote="1"] .grid-quote__text { font-size: clamp(12px, min(5.5cqh, 2.75cqi + 0.5rem), 7rem) !important; }\n';
     html +=
       '  .grid-quote__text * { text-decoration: none; border-bottom: none; }\n';
     html +=
@@ -182,7 +185,7 @@ export function generateEmbedCode(
       const cardChrome =
         'border-radius: 8px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between; ' +
         `background-color: ${tok.backgroundColor}; border: ${tok.border}; box-shadow: ${tok.boxShadow};`;
-      const quoteStyle = `color: ${tok.quoteColor}; font-weight: ${tok.quoteFontWeightStack};`;
+      const quoteStyle = `color: ${tok.quoteColor}; font-weight: ${tok.quoteFontWeight};`;
       const metaStyle = `color: ${tok.metadataColor}; font-weight: ${tok.metadataFontWeight}; border-top: 1px solid ${tok.metadataDividerColor};`;
 
       html += `<div class="testimonial-card" style="${cardChrome}">\n`;
@@ -228,12 +231,10 @@ export function generateEmbedCode(
       ]
         .filter(Boolean)
         .join(' • ');
-      const scale = effectiveQuoteScale(
-        placement.colSpan,
-        placement.rowSpan,
-        fontScaleOverrides[placement.testimonial.id]
-      );
-      const lh = lineHeightForQuoteScale(scale);
+      const fontOverride = fontScaleOverrides[placement.testimonial.id] ?? 'auto';
+      const isAutoFont = fontOverride === 'auto';
+      const scale = isAutoFont ? 1 : fontOverride;
+      const lh = isAutoFont ? AUTO_FIT_LINE_HEIGHT : lineHeightForQuoteScale(fontOverride);
       const quoteText = escapeHtml(normalizeQuoteForLayout(placement.testimonial.quote));
       const theme = resolveCardThemeId(
         globalCardTheme,
@@ -241,10 +242,12 @@ export function generateEmbedCode(
       );
       const tok = getCardThemeTokens(theme);
       const cellChrome = `background-color: ${tok.backgroundColor}; border: ${tok.border}; box-shadow: ${tok.boxShadow};`;
-      const quoteInline = `color: ${tok.quoteColor}; font-weight: ${tok.quoteFontWeightGrid};`;
+      const quoteInline = `color: ${tok.quoteColor}; font-weight: ${tok.quoteFontWeight};`;
       const metaInline = `color: ${tok.metadataColor}; font-weight: ${tok.metadataFontWeight};`;
       html +=
-        '  <div class="grid-cell" style="grid-row: ' +
+        '  <div class="grid-cell"' +
+        (isAutoFont ? ' data-auto-quote="1"' : '') +
+        ' style="grid-row: ' +
         placement.gridRow +
         '; grid-column: ' +
         placement.gridColumn +
@@ -359,6 +362,32 @@ function wordWrapWithFont(
     return out;
   }
   return lines;
+}
+
+/** Max font-size (px) for which wrapped quote lines fit in `quoteAreaHeightPx` (outline SVG grid). */
+function autoQuoteFontSizeForGridExport(
+  quoteRaw: string,
+  font: OpentypeFont,
+  textWidthPx: number,
+  quoteAreaHeightPx: number,
+  lineHeightEm: number
+): number {
+  const text = normalizeQuoteForLayout(quoteRaw);
+  const MIN_PX = 12;
+  const MAX_PX = 200;
+  let lo = MIN_PX;
+  let hi = Math.min(MAX_PX, Math.max(quoteAreaHeightPx * 1.5, MIN_PX + 1));
+  for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2;
+    const lines = wordWrapWithFont(text, font, mid, textWidthPx, 1000);
+    const needed = lines.length * mid * lineHeightEm;
+    if (needed <= quoteAreaHeightPx + 0.5) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+  return lo;
 }
 
 /**
@@ -496,8 +525,8 @@ ${parts.join('')}
   const width = SVG_PADDING * 2 + gridDims.columns * GRID_CELL_WIDTH + (gridDims.columns - 1) * GRID_GAP;
   const height = SVG_PADDING * 2 + maxRow * GRID_CELL_HEIGHT + (maxRow - 1) * GRID_GAP;
 
-  const gridQuoteFontSize = 20;
-  const gridMetaFontSize = 12;
+    const gridQuoteFontSizeBase = 20;
+    const gridMetaFontSize = 12;
   const gridLineHeightMeta = 1.4;
   const gridTextPadding = 24;
   const gridQuoteTop = 36;
@@ -523,19 +552,29 @@ ${parts.join('')}
     const cellBg = tok.backgroundColor;
     const cardStroke = strokeColorFromCssBorder(tok.border);
     const textWidth = w - gridTextPadding * 2;
-    const scale = effectiveQuoteScale(p.colSpan, p.rowSpan, fontScaleOverrides?.[t.id]);
-    const quoteLineHeightEm = lineHeightForQuoteScale(scale);
+    const fontOverride = fontScaleOverrides?.[t.id] ?? 'auto';
     const quoteAreaHeight = h - gridQuoteTop - metadataBlockHeight - gridMetaBottom;
-    const maxQuoteLines = Math.max(
-      1,
-      Math.floor(quoteAreaHeight / (gridQuoteFontSize * quoteLineHeightEm))
-    );
+    let quoteFontSize: number;
+    let quoteLineHeightEm: number;
+    if (fontOverride === 'auto') {
+      quoteLineHeightEm = AUTO_FIT_LINE_HEIGHT;
+      quoteFontSize = autoQuoteFontSizeForGridExport(
+        t.quote,
+        quoteFont,
+        textWidth,
+        quoteAreaHeight,
+        quoteLineHeightEm
+      );
+    } else {
+      quoteLineHeightEm = lineHeightForQuoteScale(fontOverride);
+      quoteFontSize = gridQuoteFontSizeBase * fontOverride;
+    }
     const quoteLines = wordWrapWithFont(
       normalizeQuoteForLayout(t.quote),
       quoteFont,
-      gridQuoteFontSize,
+      quoteFontSize,
       textWidth,
-      maxQuoteLines
+      500
     );
     const metaLines = wordWrapWithFont(meta, metaFont, gridMetaFontSize, textWidth, gridMetaMaxLines);
     const quoteSvg = wrappedLinesToPaths(
@@ -544,7 +583,7 @@ ${parts.join('')}
       x + gridTextPadding,
       y + gridQuoteTop,
       quoteLineHeightEm,
-      gridQuoteFontSize,
+      quoteFontSize,
       gridQuoteColor
     );
     const metaY = y + h - gridMetaBottom - (metaLines.length - 1) * gridMetaFontSize * gridLineHeightMeta;
