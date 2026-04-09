@@ -22,6 +22,10 @@ import {
   QuoteFontScaleOverride,
   GridDimensions,
   getValidGridSizeOptions,
+  CardSurfaceOverride,
+  CardThemeId,
+  CARD_THEME_IDS,
+  CARD_THEME_LABELS,
 } from '../types/testimonial';
 import { GridSizeOverridePicker } from './GridSizeOverridePicker';
 
@@ -52,6 +56,8 @@ interface SortableQuoteRowProps {
   autoResolvedSpanLabel?: string;
   fontScale: QuoteFontScaleOverride;
   onFontScaleChange: (testimonialId: string, scale: QuoteFontScaleOverride) => void;
+  cardSurface: CardSurfaceOverride;
+  onCardSurfaceChange: (testimonialId: string, surface: CardSurfaceOverride) => void;
   isSelected: boolean;
   onSelect: () => void;
   onRemoveQuote?: (id: string) => void;
@@ -66,6 +72,8 @@ function SortableQuoteRow({
   autoResolvedSpanLabel,
   fontScale,
   onFontScaleChange,
+  cardSurface,
+  onCardSurfaceChange,
   isSelected,
   onSelect,
   onRemoveQuote,
@@ -95,7 +103,7 @@ function SortableQuoteRow({
       onClick={(e) => {
         if (
           (e.target as HTMLElement).closest(
-            '.quote-list-drag, select, .quote-grid-size-trigger, .quote-list-remove'
+            '.quote-list-drag, select, .quote-grid-size-trigger, .quote-list-remove, .quote-list-card-theme'
           )
         )
           return;
@@ -130,6 +138,27 @@ function SortableQuoteRow({
           autoResolvedSpanLabel={effectiveGridSize === 'auto' ? autoResolvedSpanLabel : undefined}
         />
       ) : null}
+      <select
+        className="quote-list-size quote-list-text-size quote-list-card-theme"
+        value={cardSurface === 'inherit' ? '' : cardSurface}
+        onChange={(e) => {
+          const v = e.target.value;
+          onCardSurfaceChange(
+            testimonial.id,
+            v === '' ? 'inherit' : (v as CardThemeId)
+          );
+        }}
+        aria-label="Quote card colour"
+        title="Card colour (default follows sidebar theme)"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <option value="">Default</option>
+        {CARD_THEME_IDS.map((id) => (
+          <option key={id} value={id}>
+            {CARD_THEME_LABELS[id]}
+          </option>
+        ))}
+      </select>
       <select
         className="quote-list-size quote-list-text-size"
         value={String(fontScale)}
@@ -171,6 +200,8 @@ interface QuoteListProps {
   onGridSizeChange: (testimonialId: string, size: GridSizeOverride) => void;
   fontScaleOverrides: Record<string, QuoteFontScaleOverride>;
   onFontScaleChange: (testimonialId: string, scale: QuoteFontScaleOverride) => void;
+  cardSurfaceOverrides: Record<string, CardSurfaceOverride>;
+  onCardSurfaceChange: (testimonialId: string, surface: CardSurfaceOverride) => void;
   selectedQuoteId: string | null;
   onRemoveQuote?: (id: string) => void;
   /** Packed dimensions for each id when override is auto (grid mode, reading order list). */
@@ -187,6 +218,8 @@ export function QuoteList({
   onGridSizeChange,
   fontScaleOverrides,
   onFontScaleChange,
+  cardSurfaceOverrides,
+  onCardSurfaceChange,
   selectedQuoteId,
   onRemoveQuote,
   resolvedAutoSpanById,
@@ -231,6 +264,8 @@ export function QuoteList({
                 autoResolvedSpanLabel={resolvedAutoSpanById?.[t.id]}
                 fontScale={fontScaleOverrides[t.id] ?? 'auto'}
                 onFontScaleChange={onFontScaleChange}
+                cardSurface={cardSurfaceOverrides[t.id] ?? 'inherit'}
+                onCardSurfaceChange={onCardSurfaceChange}
                 isSelected={selectedQuoteId === t.id}
                 onSelect={() =>
                   onSelectQuote(selectedQuoteId === t.id ? null : t.id)

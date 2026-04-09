@@ -9,6 +9,10 @@ import {
   GRID_ASPECT_RATIO_OPTIONS,
   MetadataFieldKey,
   MetadataToggles,
+  CardThemeId,
+  CardSurfaceOverride,
+  CARD_THEME_IDS,
+  CARD_THEME_LABELS,
 } from '../types/testimonial';
 import { calculateGridLayout, sortPlacementsReadingOrder } from '../lib/gridLayout';
 import { QuoteList } from './QuoteList';
@@ -32,6 +36,10 @@ export interface SidebarProps {
   setGridSizeOverride: (testimonialId: string, size: GridSizeOverride) => void;
   fontScaleOverrides: Record<string, QuoteFontScaleOverride>;
   setFontScaleOverride: (testimonialId: string, scale: QuoteFontScaleOverride) => void;
+  globalCardTheme: CardThemeId;
+  setGlobalCardTheme: (theme: CardThemeId) => void;
+  cardSurfaceOverrides: Record<string, CardSurfaceOverride>;
+  setCardSurfaceOverride: (testimonialId: string, surface: CardSurfaceOverride) => void;
   selectedQuoteId: string | null;
   onSelectQuote: (id: string | null) => void;
   /** Grid: open modal to edit the selected quote (keyboard / explicit control). */
@@ -68,6 +76,10 @@ export function Sidebar({
   setGridSizeOverride,
   fontScaleOverrides,
   setFontScaleOverride,
+  globalCardTheme,
+  setGlobalCardTheme,
+  cardSurfaceOverrides,
+  setCardSurfaceOverride,
   selectedQuoteId,
   onSelectQuote,
   onEditSelectedQuote,
@@ -212,6 +224,28 @@ export function Sidebar({
       </section>
 
       <section className="sidebar-section">
+        <h3 className="sidebar-heading">Card colour</h3>
+        <p className="sidebar-muted sidebar-section-hint">
+          Default for all cards. Override per quote in the list below.
+        </p>
+        <label htmlFor="global-card-theme" className="card-theme-label">
+          <span className="card-theme-label-text">Theme</span>
+          <select
+            id="global-card-theme"
+            className="card-theme-select"
+            value={globalCardTheme}
+            onChange={(e) => setGlobalCardTheme(e.target.value as CardThemeId)}
+          >
+            {CARD_THEME_IDS.map((id) => (
+              <option key={id} value={id}>
+                {CARD_THEME_LABELS[id]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
+
+      <section className="sidebar-section">
         <div className="sidebar-section-heading-row">
           <h3 className="sidebar-heading">Quotes</h3>
           <div className="sidebar-quotes-actions">
@@ -256,6 +290,8 @@ export function Sidebar({
           onGridSizeChange={setGridSizeOverride}
           fontScaleOverrides={fontScaleOverrides}
           onFontScaleChange={setFontScaleOverride}
+          cardSurfaceOverrides={cardSurfaceOverrides}
+          onCardSurfaceChange={setCardSurfaceOverride}
           selectedQuoteId={selectedQuoteId}
           onRemoveQuote={onRemoveQuote}
           resolvedAutoSpanById={

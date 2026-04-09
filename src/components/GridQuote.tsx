@@ -1,6 +1,13 @@
 import { CSSProperties } from 'react';
-import { Testimonial, MetadataToggles, MetadataFieldKey, QuoteFontScaleOverride } from '../types/testimonial';
+import {
+  Testimonial,
+  MetadataToggles,
+  MetadataFieldKey,
+  QuoteFontScaleOverride,
+  CardThemeId,
+} from '../types/testimonial';
 import { styleConfig } from '../lib/styleConfig';
+import { getCardThemeTokens } from '../lib/cardThemes';
 import { getDisplayedMetadataEntries } from '../lib/metadataNormalize';
 import { normalizeQuoteForLayout } from '../lib/quoteNormalize';
 import { effectiveQuoteScale, lineHeightForQuoteScale } from '../lib/gridQuoteFontScale';
@@ -19,6 +26,9 @@ interface GridQuoteProps {
   isSelected?: boolean;
   /** Opens quote edit modal on double-click (grid and single-column layout). */
   onRequestEdit?: (id: string) => void;
+  cardTheme: CardThemeId;
+  /** Stack uses slightly heavier quote weight than grid (see theme tokens). */
+  quoteVariant: 'grid' | 'stack';
 }
 
 export function GridQuote({
@@ -34,8 +44,11 @@ export function GridQuote({
   onSelect,
   isSelected,
   onRequestEdit,
+  cardTheme,
+  quoteVariant,
 }: GridQuoteProps) {
   const displayedMetadata = getDisplayedMetadataEntries(testimonial, metadataToggles, metadataOrder);
+  const tokens = getCardThemeTokens(cardTheme);
 
   const scale = effectiveQuoteScale(colSpan, rowSpan, fontScaleOverride);
   const lineHeight = lineHeightForQuoteScale(scale);
@@ -44,6 +57,9 @@ export function GridQuote({
 
   const cellStyle: CSSProperties = {
     ...styleConfig.grid.cell,
+    backgroundColor: tokens.backgroundColor,
+    border: tokens.border,
+    boxShadow: tokens.boxShadow,
     minHeight: 0,
     overflow: 'visible',
     ...(gridRow && { gridRow }),
@@ -52,6 +68,9 @@ export function GridQuote({
     ['--grid-quote-scale' as string]: scale,
     ['--grid-quote-line-height' as string]: lineHeight,
   };
+
+  const quoteWeight =
+    quoteVariant === 'stack' ? tokens.quoteFontWeightStack : tokens.quoteFontWeightGrid;
 
   const rootClass = ['grid-quote', isSelected ? 'grid-quote-selected' : ''].filter(Boolean).join(' ');
   const canEditInModal = Boolean(onUpdateTestimonial && onRequestEdit);
@@ -80,11 +99,22 @@ export function GridQuote({
         }
       >
         <div className="grid-quote__inner">
-          <div className="grid-quote__text" lang="en">
+          <div
+            className="grid-quote__text"
+            lang="en"
+            style={{ color: tokens.quoteColor, fontWeight: quoteWeight }}
+          >
             {displayQuote}
           </div>
         </div>
-        <div className="grid-quote__metadata" style={styleConfig.grid.metadata}>
+        <div
+          className="grid-quote__metadata"
+          style={{
+            ...styleConfig.grid.metadata,
+            color: tokens.metadataColor,
+            fontWeight: tokens.metadataFontWeight,
+          }}
+        >
           {displayedMetadata.map(({ key, value }, i) => (
             <span key={key}>
               {i > 0 && ' • '}

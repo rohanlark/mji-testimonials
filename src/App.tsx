@@ -12,6 +12,8 @@ import {
   GridAspectRatio,
   GridDimensions,
   getGridAspectRatioCss,
+  CardThemeId,
+  CardSurfaceOverride,
 } from './types/testimonial';
 import { TestimonialPreview } from './components/QuoteRenderer';
 import { Sidebar } from './components/Sidebar';
@@ -40,6 +42,10 @@ function App() {
   const [gridAspectRatioFlipped, setGridAspectRatioFlipped] = useState(false);
   const [gridDimensions, setGridDimensions] = useState<GridDimensions>({ columns: 3, rows: 3 });
   const [showGridLines, setShowGridLines] = useState(false);
+  const [globalCardTheme, setGlobalCardTheme] = useState<CardThemeId>('light');
+  const [cardSurfaceOverrides, setCardSurfaceOverrides] = useState<
+    Record<string, CardSurfaceOverride>
+  >({});
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
   const [pasteModalOpen, setPasteModalOpen] = useState(false);
@@ -100,6 +106,11 @@ function App() {
       delete next[id];
       return next;
     });
+    setCardSurfaceOverrides((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
     setSelectedQuoteId((cur) => (cur === id ? null : cur));
     setEditingQuoteId((cur) => (cur === id ? null : cur));
   }, []);
@@ -153,6 +164,17 @@ function App() {
     });
   };
 
+  const setCardSurfaceOverride = (testimonialId: string, surface: CardSurfaceOverride) => {
+    setCardSurfaceOverrides((prev) => {
+      if (surface === 'inherit') {
+        const next = { ...prev };
+        delete next[testimonialId];
+        return next;
+      }
+      return { ...prev, [testimonialId]: surface };
+    });
+  };
+
   const setMetadataToggle = (field: keyof MetadataToggles, value: boolean) => {
     setMetadataToggles((prev) => ({ ...prev, [field]: value }));
   };
@@ -194,7 +216,9 @@ function App() {
         metadataToggles,
         metadataOrder,
         gridDimensions,
-        fontScaleOverrides
+        fontScaleOverrides,
+        globalCardTheme,
+        cardSurfaceOverrides
       );
       downloadFile(svgString, 'testimonials.svg', 'image/svg+xml');
     } catch (error) {
@@ -209,7 +233,9 @@ function App() {
         layoutMode,
         gridDimensions,
         gridSizeOverrides,
-        fontScaleOverrides
+        fontScaleOverrides,
+        globalCardTheme,
+        cardSurfaceOverrides
       );
       await copyToClipboard(embedCode);
       alert('Embed code copied to clipboard!');
@@ -224,7 +250,9 @@ function App() {
       layoutMode,
       gridDimensions,
       gridSizeOverrides,
-      fontScaleOverrides
+      fontScaleOverrides,
+      globalCardTheme,
+      cardSurfaceOverrides
     );
     downloadFile(embedCode, 'testimonials.html', 'text/html');
   };
@@ -300,6 +328,8 @@ function App() {
                     gridDimensions={gridDimensions}
                     gridSizeOverrides={gridSizeOverrides}
                     fontScaleOverrides={fontScaleOverrides}
+                    globalCardTheme={globalCardTheme}
+                    cardSurfaceOverrides={cardSurfaceOverrides}
                     selectedQuoteId={selectedQuoteId}
                     onSelectQuote={setSelectedQuoteId}
                     onUpdateTestimonial={(id, partial) =>
@@ -418,6 +448,10 @@ function App() {
             setGridSizeOverride={setGridSizeOverride}
             fontScaleOverrides={fontScaleOverrides}
             setFontScaleOverride={setFontScaleOverride}
+            globalCardTheme={globalCardTheme}
+            setGlobalCardTheme={setGlobalCardTheme}
+            cardSurfaceOverrides={cardSurfaceOverrides}
+            setCardSurfaceOverride={setCardSurfaceOverride}
             selectedQuoteId={selectedQuoteId}
             onSelectQuote={setSelectedQuoteId}
             onEditSelectedQuote={() => {

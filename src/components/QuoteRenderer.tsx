@@ -11,7 +11,10 @@ import {
   QuoteFontScaleOverride,
   GridDimensions,
   GridAspectRatio,
+  CardThemeId,
+  CardSurfaceOverride,
 } from '../types/testimonial';
+import { resolveCardThemeId } from '../lib/cardThemes';
 import { GridQuote } from './GridQuote';
 import { Sidebar } from './Sidebar';
 import { QuoteEditModal } from './QuoteEditModal';
@@ -39,6 +42,8 @@ export interface TestimonialPreviewProps {
   onRequestEditQuote?: (id: string) => void;
   /** When true, draw faint column/row guides (track boundaries) behind the grid. */
   showGridLines?: boolean;
+  globalCardTheme?: CardThemeId;
+  cardSurfaceOverrides?: Record<string, CardSurfaceOverride>;
 }
 
 /** Renders only the testimonial preview (stack or grid). Used when layout is main | sidebar. */
@@ -55,6 +60,8 @@ export function TestimonialPreview({
   onUpdateTestimonial,
   onRequestEditQuote,
   showGridLines = false,
+  globalCardTheme = 'light',
+  cardSurfaceOverrides = {},
 }: TestimonialPreviewProps) {
   const placements =
     layoutMode === 'grid'
@@ -80,6 +87,8 @@ export function TestimonialPreview({
             onUpdateTestimonial={onUpdateTestimonial}
             onRequestEdit={onUpdateTestimonial ? onRequestEditQuote : undefined}
             fontScaleOverride={fontScaleOverrides[testimonial.id]}
+            cardTheme={resolveCardThemeId(globalCardTheme, cardSurfaceOverrides[testimonial.id])}
+            quoteVariant="stack"
             onSelect={
               onSelectQuote
                 ? () =>
@@ -157,6 +166,11 @@ export function TestimonialPreview({
             onUpdateTestimonial={onUpdateTestimonial}
             onRequestEdit={onUpdateTestimonial ? onRequestEditQuote : undefined}
             fontScaleOverride={fontScaleOverrides[placement.testimonial.id]}
+            cardTheme={resolveCardThemeId(
+              globalCardTheme,
+              cardSurfaceOverrides[placement.testimonial.id]
+            )}
+            quoteVariant="grid"
             onSelect={
               onSelectQuote
                 ? () =>
@@ -195,6 +209,10 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
   const [gridAspectRatioFlipped, setGridAspectRatioFlipped] = useState(false);
   const [gridDimensions, setGridDimensions] = useState<GridDimensions>({ columns: 3, rows: 3 });
   const [showGridLines, setShowGridLines] = useState(false);
+  const [globalCardTheme, setGlobalCardTheme] = useState<CardThemeId>('light');
+  const [cardSurfaceOverrides, setCardSurfaceOverrides] = useState<
+    Record<string, CardSurfaceOverride>
+  >({});
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
 
@@ -220,6 +238,17 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
         return next;
       }
       return { ...prev, [testimonialId]: scale };
+    });
+  };
+
+  const setCardSurfaceOverride = (testimonialId: string, surface: CardSurfaceOverride) => {
+    setCardSurfaceOverrides((prev) => {
+      if (surface === 'inherit') {
+        const next = { ...prev };
+        delete next[testimonialId];
+        return next;
+      }
+      return { ...prev, [testimonialId]: surface };
     });
   };
 
@@ -281,7 +310,9 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
         layoutMode,
         gridDimensions,
         gridSizeOverrides,
-        fontScaleOverrides
+        fontScaleOverrides,
+        globalCardTheme,
+        cardSurfaceOverrides
       );
       await copyToClipboard(embedCode);
       alert('Embed code copied to clipboard!');
@@ -296,7 +327,9 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
       layoutMode,
       gridDimensions,
       gridSizeOverrides,
-      fontScaleOverrides
+      fontScaleOverrides,
+      globalCardTheme,
+      cardSurfaceOverrides
     );
     downloadFile(embedCode, 'testimonials.html', 'text/html');
   };
@@ -329,6 +362,8 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
           gridDimensions={gridDimensions}
           gridSizeOverrides={gridSizeOverrides}
           fontScaleOverrides={fontScaleOverrides}
+          globalCardTheme={globalCardTheme}
+          cardSurfaceOverrides={cardSurfaceOverrides}
           selectedQuoteId={selectedQuoteId}
           onSelectQuote={setSelectedQuoteId}
           onUpdateTestimonial={onUpdateTestimonial}
@@ -360,6 +395,10 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
         setGridSizeOverride={setGridSizeOverride}
         fontScaleOverrides={fontScaleOverrides}
         setFontScaleOverride={setFontScaleOverride}
+        globalCardTheme={globalCardTheme}
+        setGlobalCardTheme={setGlobalCardTheme}
+        cardSurfaceOverrides={cardSurfaceOverrides}
+        setCardSurfaceOverride={setCardSurfaceOverride}
         selectedQuoteId={selectedQuoteId}
         onSelectQuote={setSelectedQuoteId}
         onEditSelectedQuote={

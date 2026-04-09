@@ -695,6 +695,31 @@
   color: #999;
 }
 
+.sidebar-section-hint {
+  margin-top: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.card-theme-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.card-theme-label-text {
+  font-size: 0.8125rem;
+  color: #444;
+}
+
+.card-theme-select {
+  max-width: 100%;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  background: #fff;
+}
+
 /* Quote list in sidebar */
 .quote-list {
   list-style: none;

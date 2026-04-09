@@ -95,6 +95,19 @@ export const METADATA_FIELD_LABELS: Record<MetadataFieldKey, string> = {
 
 export type LayoutMode = 'stack' | 'grid';
 
+/** Named card surface themes (colours and type weights are defined in `cardThemes.ts`). */
+export const CARD_THEME_IDS = ['light', 'dark', 'teal'] as const;
+export type CardThemeId = (typeof CARD_THEME_IDS)[number];
+
+/** Per-quote surface: follow global theme, or pin to a named theme. */
+export type CardSurfaceOverride = 'inherit' | CardThemeId;
+
+export const CARD_THEME_LABELS: Record<CardThemeId, string> = {
+  light: 'Light',
+  dark: 'Dark',
+  teal: 'Teal',
+};
+
 export type ExportFormat = 'svg' | 'embed';
 
 /** Per-quote grid size override. Format: [columns]x[rows]. Auto = use character-based sizing. Columns 1–4, rows 1–4. */
