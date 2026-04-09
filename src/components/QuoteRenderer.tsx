@@ -29,7 +29,6 @@ import {
   countVacantUnitCells,
 } from '../lib/gridLayout';
 import { normalizeQuoteForLayout } from '../lib/quoteNormalize';
-import { swapQuoteWithNeighborWrapped } from '../lib/swapQuoteInOrder';
 import { exportToSVG, generateEmbedCode, downloadFile, copyToClipboard } from '../lib/exportUtils';
 import { CarouselDeckLayout } from './CarouselDeckLayout';
 import { RevealDeckLayout } from './RevealDeckLayout';
@@ -66,8 +65,6 @@ export interface TestimonialPreviewProps {
   onFontScaleChange?: (testimonialId: string, scale: QuoteFontScaleOverride) => void;
   /** When set, selected cards show on-card surface (colour) control. */
   onCardSurfaceChange?: (testimonialId: string, surface: CardSurfaceOverride) => void;
-  /** Swap quote with list neighbor (wraps); updates packing order. */
-  onSwapQuoteOrder?: (testimonialId: string, delta: -1 | 1) => void;
   /** When true, quote text may hyphenate across line breaks. */
   quoteHyphenation?: boolean;
   /** Carousel deck: optional autoplay (pauses on hover / focus inside deck). */
@@ -95,7 +92,6 @@ export function TestimonialPreview({
   onGridSizeChange,
   onFontScaleChange,
   onCardSurfaceChange,
-  onSwapQuoteOrder,
   quoteHyphenation = false,
   carouselAutoplay = false,
   revealDeckContent,
@@ -138,19 +134,13 @@ export function TestimonialPreview({
         cardSurface: cardSurfaceOverrides[testimonialId] ?? 'inherit',
         onCardSurfaceChange: (surface) =>
           onCardSurfaceChange(testimonialId, surface),
-        onSwapQuoteOrder: onSwapQuoteOrder
-          ? (delta) => onSwapQuoteOrder(testimonialId, delta)
-          : undefined,
-        quoteCountInList: testimonials.length,
       };
     },
     [
-      testimonials.length,
       fontScaleOverrides,
       cardSurfaceOverrides,
       onFontScaleChange,
       onCardSurfaceChange,
-      onSwapQuoteOrder,
     ]
   );
 
@@ -200,15 +190,12 @@ export function TestimonialPreview({
         testimonials={testimonials}
         metadataToggles={metadataToggles}
         metadataOrder={metadataOrder}
-        fontScaleOverrides={fontScaleOverrides}
         globalCardTheme={globalCardTheme}
-        cardSurfaceOverrides={cardSurfaceOverrides}
         selectedQuoteId={selectedQuoteId}
         onSelectQuote={onSelectQuote}
         onUpdateTestimonial={onUpdateTestimonial}
         onRequestEditQuote={onRequestEditQuote}
         quoteHyphenation={quoteHyphenation}
-        makeAppearanceControl={makeAppearanceControl}
         autoplay={carouselAutoplay}
       />
     );
@@ -220,15 +207,12 @@ export function TestimonialPreview({
         testimonials={testimonials}
         metadataToggles={metadataToggles}
         metadataOrder={metadataOrder}
-        fontScaleOverrides={fontScaleOverrides}
         globalCardTheme={globalCardTheme}
-        cardSurfaceOverrides={cardSurfaceOverrides}
         selectedQuoteId={selectedQuoteId}
         onSelectQuote={onSelectQuote}
         onUpdateTestimonial={onUpdateTestimonial}
         onRequestEditQuote={onRequestEditQuote}
         quoteHyphenation={quoteHyphenation}
-        makeAppearanceControl={makeAppearanceControl}
         revealContent={revealDeckContent ?? <DefaultRevealDeckContent />}
       />
     );
@@ -493,13 +477,6 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
     handleReorderQuotes(shuffled);
   };
 
-  const handleSwapQuoteOrder =
-    onReorderQuotes !== undefined
-      ? (testimonialId: string, delta: -1 | 1) => {
-          onReorderQuotes(swapQuoteWithNeighborWrapped(testimonials, testimonialId, delta));
-        }
-      : undefined;
-
   if (testimonials.length === 0) {
     return <div>No testimonials to display</div>;
   }
@@ -532,7 +509,6 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
           onGridSizeChange={setGridSizeOverride}
           onFontScaleChange={setFontScaleOverride}
           onCardSurfaceChange={setCardSurfaceOverride}
-          onSwapQuoteOrder={handleSwapQuoteOrder}
           quoteHyphenation={quoteHyphenation}
           carouselAutoplay={carouselAutoplay}
           revealDeckContent={<DefaultRevealDeckContent />}

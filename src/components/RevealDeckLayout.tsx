@@ -4,12 +4,10 @@ import {
   Testimonial,
   MetadataToggles,
   MetadataFieldKey,
-  QuoteFontScaleOverride,
-  CardSurfaceOverride,
   GlobalCardThemeId,
 } from '../types/testimonial';
 import { resolveCardThemeId } from '../lib/cardThemes';
-import { GridQuote, type GridQuoteAppearanceControl } from './GridQuote';
+import { GridQuote } from './GridQuote';
 import { usePrefersReducedMotion } from '../lib/usePrefersReducedMotion';
 
 const MAX_CARDS = 4;
@@ -27,15 +25,12 @@ export interface RevealDeckLayoutProps {
   testimonials: Testimonial[];
   metadataToggles: MetadataToggles;
   metadataOrder: MetadataFieldKey[];
-  fontScaleOverrides: Record<string, QuoteFontScaleOverride>;
   globalCardTheme: GlobalCardThemeId;
-  cardSurfaceOverrides: Record<string, CardSurfaceOverride>;
   selectedQuoteId?: string | null;
   onSelectQuote?: (id: string | null) => void;
   onUpdateTestimonial?: (id: string, partial: Partial<Testimonial>) => void;
   onRequestEditQuote?: (id: string) => void;
   quoteHyphenation?: boolean;
-  makeAppearanceControl: (testimonialId: string) => GridQuoteAppearanceControl | undefined;
   revealContent: ReactNode;
 }
 
@@ -43,18 +38,17 @@ export function RevealDeckLayout({
   testimonials,
   metadataToggles,
   metadataOrder,
-  fontScaleOverrides,
   globalCardTheme,
-  cardSurfaceOverrides,
   selectedQuoteId,
   onSelectQuote,
   onUpdateTestimonial,
   onRequestEditQuote,
   quoteHyphenation = false,
-  makeAppearanceControl,
   revealContent,
 }: RevealDeckLayoutProps) {
   const reducedMotion = usePrefersReducedMotion();
+  const deckCardTheme = resolveCardThemeId(globalCardTheme, 'inherit');
+
   const sliceInitial = useCallback(
     () => testimonials.slice(0, Math.min(MAX_CARDS, testimonials.length)),
     [testimonials]
@@ -72,7 +66,7 @@ export function RevealDeckLayout({
     if (!onSelectQuote) return;
     const front = queue[0];
     const id = front?.id ?? null;
-    if (id !== selectedQuoteId && id != null) onSelectQuote(id);
+    if (id && id !== selectedQuoteId) onSelectQuote(id);
   }, [queue, onSelectQuote, selectedQuoteId]);
 
   useEffect(() => {
@@ -143,7 +137,6 @@ export function RevealDeckLayout({
                 const depth = i;
                 const isFront = i === 0;
                 const ds = depthStyle(depth);
-                const appearanceControl = isFront ? makeAppearanceControl(t.id) : undefined;
 
                 const card = (
                   <GridQuote
@@ -154,52 +147,51 @@ export function RevealDeckLayout({
                     metadataOrder={metadataOrder}
                     onUpdateTestimonial={onUpdateTestimonial}
                     onRequestEdit={onUpdateTestimonial ? onRequestEditQuote : undefined}
-                    fontScaleOverride={fontScaleOverrides[t.id]}
-                    cardTheme={resolveCardThemeId(globalCardTheme, cardSurfaceOverrides[t.id])}
+                    fontScaleOverride={undefined}
+                    cardTheme={deckCardTheme}
                     quoteHyphenation={quoteHyphenation}
-                    onSelect={
-                      onSelectQuote
-                        ? () =>
-                            onSelectQuote(selectedQuoteId === t.id && isFront ? null : t.id)
-                        : undefined
-                    }
-                    isSelected={isFront && selectedQuoteId === t.id}
-                    appearanceControl={appearanceControl}
                   />
                 );
 
                 return (
-                  <motion.div
+                  <div
                     key={t.id}
-                    className={`deck-carousel__layer ${isFront ? 'deck-carousel__layer--front' : ''}`}
-                    initial={false}
-                    animate={{
-                      scale: ds.scale,
-                      y: ds.y,
-                      opacity: ds.opacity,
-                      zIndex: ds.zIndex,
-                      x: isFront ? 0 : 0,
-                    }}
-                    exit={
-                      isFront
-                        ? { x: exitX, opacity: reducedMotion ? 1 : 0, transition: { duration: reducedMotion ? 0 : 0.28 } }
-                        : undefined
-                    }
-                    transition={transition}
-                    drag={!isFront || reducedMotion ? false : 'x'}
-                    dragConstraints={{ left: -140, right: 140 }}
-                    dragElastic={0.22}
-                    onDragEnd={
-                      isFront && !reducedMotion
-                        ? (_, info) => {
-                            if (info.offset.x < -SWIPE_PX || info.velocity.x < -420) dismissFront();
-                          }
-                        : undefined
-                    }
-                    style={{ pointerEvents: isFront ? 'auto' : 'none' }}
+                    className={`deck-layer-slot ${isFront ? 'deck-layer-slot--interactive' : ''}`}
+                    style={{ zIndex: ds.zIndex }}
                   >
-                    {card}
-                  </motion.div>
+                    <motion.div
+                      className={`deck-layer-motion ${isFront ? 'deck-layer-motion--front' : ''}`}
+                      initial={false}
+                      animate={{
+                        scale: ds.scale,
+                        y: ds.y,
+                        opacity: ds.opacity,
+                        x: 0,
+                      }}
+                      exit={
+                        isFront
+                          ? {
+                              x: exitX,
+                              opacity: reducedMotion ? 1 : 0,
+                              transition: { duration: reducedMotion ? 0 : 0.28 },
+                            }
+                          : undefined
+                      }
+                      transition={transition}
+                      drag={isFront && !reducedMotion ? 'x' : false}
+                      dragConstraints={{ left: -140, right: 140 }}
+                      dragElastic={0.22}
+                      onDragEnd={
+                        isFront && !reducedMotion
+                          ? (_, info) => {
+                              if (info.offset.x < -SWIPE_PX || info.velocity.x < -420) dismissFront();
+                            }
+                          : undefined
+                      }
+                    >
+                      {card}
+                    </motion.div>
+                  </div>
                 );
               })}
             </AnimatePresence>

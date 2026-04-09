@@ -4,12 +4,10 @@ import {
   Testimonial,
   MetadataToggles,
   MetadataFieldKey,
-  QuoteFontScaleOverride,
-  CardSurfaceOverride,
   GlobalCardThemeId,
 } from '../types/testimonial';
 import { resolveCardThemeId } from '../lib/cardThemes';
-import { GridQuote, type GridQuoteAppearanceControl } from './GridQuote';
+import { GridQuote } from './GridQuote';
 import { usePrefersReducedMotion } from '../lib/usePrefersReducedMotion';
 
 const STACK_DEPTH = 4;
@@ -31,15 +29,12 @@ export interface CarouselDeckLayoutProps {
   testimonials: Testimonial[];
   metadataToggles: MetadataToggles;
   metadataOrder: MetadataFieldKey[];
-  fontScaleOverrides: Record<string, QuoteFontScaleOverride>;
   globalCardTheme: GlobalCardThemeId;
-  cardSurfaceOverrides: Record<string, CardSurfaceOverride>;
   selectedQuoteId?: string | null;
   onSelectQuote?: (id: string | null) => void;
   onUpdateTestimonial?: (id: string, partial: Partial<Testimonial>) => void;
   onRequestEditQuote?: (id: string) => void;
   quoteHyphenation?: boolean;
-  makeAppearanceControl: (testimonialId: string) => GridQuoteAppearanceControl | undefined;
   autoplay?: boolean;
 }
 
@@ -47,15 +42,12 @@ export function CarouselDeckLayout({
   testimonials,
   metadataToggles,
   metadataOrder,
-  fontScaleOverrides,
   globalCardTheme,
-  cardSurfaceOverrides,
   selectedQuoteId,
   onSelectQuote,
   onUpdateTestimonial,
   onRequestEditQuote,
   quoteHyphenation = false,
-  makeAppearanceControl,
   autoplay = false,
 }: CarouselDeckLayoutProps) {
   const n = testimonials.length;
@@ -66,6 +58,8 @@ export function CarouselDeckLayout({
   const autoplayPaused = hoverInside || focusInside;
   const rootRef = useRef<HTMLDivElement>(null);
   const [announce, setAnnounce] = useState('');
+
+  const deckCardTheme = resolveCardThemeId(globalCardTheme, 'inherit');
 
   const goNext = useCallback(() => {
     if (n <= 1) return;
@@ -176,7 +170,6 @@ export function CarouselDeckLayout({
         {layers.map(({ testimonial: t, depth }) => {
           const isFront = depth === 0;
           const ds = depthStyle(depth);
-          const appearanceControl = makeAppearanceControl(t.id);
 
           const card = (
             <GridQuote
@@ -187,66 +180,43 @@ export function CarouselDeckLayout({
               metadataOrder={metadataOrder}
               onUpdateTestimonial={onUpdateTestimonial}
               onRequestEdit={onUpdateTestimonial ? onRequestEditQuote : undefined}
-              fontScaleOverride={fontScaleOverrides[t.id]}
-              cardTheme={resolveCardThemeId(globalCardTheme, cardSurfaceOverrides[t.id])}
+              fontScaleOverride={undefined}
+              cardTheme={deckCardTheme}
               quoteHyphenation={quoteHyphenation}
-              onSelect={
-                onSelectQuote
-                  ? () =>
-                      onSelectQuote(selectedQuoteId === t.id && isFront ? null : t.id)
-                  : undefined
-              }
-              isSelected={isFront && selectedQuoteId === t.id}
-              appearanceControl={isFront ? appearanceControl : undefined}
             />
           );
 
-          if (!isFront) {
-            return (
+          return (
+            <div
+              key={isFront ? `front-${t.id}` : `${t.id}-d${depth}`}
+              className={`deck-layer-slot ${isFront ? 'deck-layer-slot--interactive' : ''}`}
+              style={{ zIndex: ds.zIndex }}
+            >
               <motion.div
-                key={`${t.id}-d${depth}`}
-                className="deck-carousel__layer"
+                className={`deck-layer-motion ${isFront ? 'deck-layer-motion--front' : ''}`}
                 initial={false}
                 animate={{
                   scale: ds.scale,
                   y: ds.y,
                   opacity: ds.opacity,
-                  zIndex: ds.zIndex,
+                  x: 0,
                 }}
                 transition={transition}
-                style={{
-                  pointerEvents: 'none',
-                }}
+                drag={isFront && !reducedMotion && n > 1 ? 'x' : false}
+                dragConstraints={{ left: -120, right: 120 }}
+                dragElastic={0.25}
+                onDragEnd={
+                  isFront && !reducedMotion && n > 1
+                    ? (_, info) => {
+                        if (info.offset.x < -SWIPE_PX || info.velocity.x < -420) goNext();
+                        else if (info.offset.x > SWIPE_PX || info.velocity.x > 420) goPrev();
+                      }
+                    : undefined
+                }
               >
                 {card}
               </motion.div>
-            );
-          }
-
-          return (
-            <motion.div
-              key={`front-${t.id}`}
-              className="deck-carousel__layer deck-carousel__layer--front"
-              initial={false}
-              animate={{
-                scale: ds.scale,
-                y: ds.y,
-                opacity: ds.opacity,
-                zIndex: ds.zIndex,
-                x: 0,
-              }}
-              transition={transition}
-              drag={reducedMotion || n <= 1 ? false : 'x'}
-              dragConstraints={{ left: -120, right: 120 }}
-              dragElastic={0.25}
-              onDragEnd={(_, info) => {
-                if (reducedMotion || n <= 1) return;
-                if (info.offset.x < -SWIPE_PX || info.velocity.x < -420) goNext();
-                else if (info.offset.x > SWIPE_PX || info.velocity.x > 420) goPrev();
-              }}
-            >
-              {card}
-            </motion.div>
+            </div>
           );
         })}
       </div>

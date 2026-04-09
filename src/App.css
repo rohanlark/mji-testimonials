@@ -461,148 +461,159 @@
   cursor: nwse-resize;
 }
 
-/* On-card toolbar: theme segment (L/D/T), ± type, order ↑↓ — cell span = drag handles only */
+/* On-card toolbar: 20px pill, Figma — 12px theme dots (2px gap), Font label, unified +/- (cell = handles only) */
 .grid-quote--appearance .grid-quote__body {
-  padding-top: 6.5rem;
+  padding-top: 40px;
 }
 
 .grid-quote__chrome {
+  box-sizing: border-box;
   position: absolute;
   z-index: 4;
   left: 8px;
-  right: 8px;
   top: 8px;
+  right: auto;
+  width: max-content;
+  max-width: calc(100% - 16px);
+  height: 20px;
+  padding: 0 6px;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.94);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(6px);
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .grid-quote__chrome-themes {
   display: flex;
-  width: 100%;
-  border-radius: 6px;
-  overflow: hidden;
-  border: 1px solid rgba(0, 0, 0, 0.14);
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
-.grid-quote__chrome-theme-seg {
-  flex: 1;
-  min-width: 0;
+.grid-quote__chrome-swatch {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 4px;
-  border: none;
-  border-right: 1px solid rgba(0, 0, 0, 0.12);
-  background: rgba(0, 0, 0, 0.04);
-  cursor: pointer;
-  transition: background 0.12s ease;
-}
-
-.grid-quote__chrome-theme-seg:last-child {
-  border-right: none;
-}
-
-.grid-quote__chrome-theme-seg:hover {
-  background: rgba(0, 123, 255, 0.1);
-}
-
-.grid-quote__chrome-theme-seg--active {
-  background: rgba(0, 123, 255, 0.18);
-  box-shadow: inset 0 0 0 1px rgba(0, 123, 255, 0.35);
-}
-
-.grid-quote__chrome-theme-icon {
-  display: block;
-  width: 1.1rem;
-  height: 1.1rem;
-  border-radius: 50%;
-}
-
-.grid-quote__chrome-theme-icon--light {
-  background: radial-gradient(circle at 30% 30%, #fffacd, #ffe082 45%, #ffb74d);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12) inset;
-}
-
-.grid-quote__chrome-theme-icon--dark {
-  background: radial-gradient(circle at 35% 30%, #4a6fa5, #1a237e 55%, #0d1421);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15) inset;
-}
-
-.grid-quote__chrome-theme-icon--teal {
-  background: radial-gradient(circle at 30% 25%, #4dd0e1, #0a7791 65%, #004d40);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1) inset;
-}
-
-.grid-quote__chrome-size {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-.grid-quote__chrome-step {
-  width: 32px;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  width: 12px;
+  height: 12px;
   padding: 0;
-  border: 1px solid rgba(0, 0, 0, 0.16);
-  border-radius: 6px;
-  background: #fff;
-  font-size: 1.1rem;
-  font-weight: 600;
-  line-height: 1;
-  color: #222;
+  margin: 0;
+  border: none;
+  background: transparent;
   cursor: pointer;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
-.grid-quote__chrome-step:hover {
-  background: #f0f7ff;
-  border-color: #007bff;
-}
-
-.grid-quote__chrome-step:focus-visible {
+.grid-quote__chrome-swatch:focus-visible {
   outline: 2px solid #007bff;
   outline-offset: 1px;
 }
 
-.grid-quote__chrome-size-label {
-  min-width: 2.25rem;
-  text-align: center;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #333;
-  letter-spacing: 0.02em;
-}
-
-.grid-quote__chrome-order {
+.grid-quote__chrome-dot {
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding-top: 2px;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
 }
 
-.grid-quote__chrome-order-label {
-  font-size: 0.68rem;
+.grid-quote__chrome-dot--light {
+  background: #ffffff;
+  border: 1px solid #d8d8d8;
+}
+
+.grid-quote__chrome-dot--dark {
+  background: #0d1421;
+  border: 1px solid #0d1421;
+}
+
+.grid-quote__chrome-dot--teal {
+  background: #0a7791;
+  border: 1px solid #0a7791;
+}
+
+.grid-quote__chrome-check {
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  display: block;
+  transform: translateY(0.5px);
+}
+
+.grid-quote__chrome-check--light {
+  color: #222;
+}
+
+.grid-quote__chrome-check--dark,
+.grid-quote__chrome-check--teal {
+  color: #fff;
+}
+
+.grid-quote__chrome-font-caption {
+  font-family: "Inter Tight", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  color: #333;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.grid-quote__chrome-font-pill {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  height: 16px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.grid-quote__chrome-pill-btn {
+  box-sizing: border-box;
+  min-width: 20px;
+  height: 100%;
+  padding: 0 5px;
+  margin: 0;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #666;
-  flex: 0 0 auto;
+  line-height: 1;
+  color: #222;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.grid-quote__chrome-order-btn {
-  flex: 0 0 auto;
+.grid-quote__chrome-pill-btn--plus {
+  background: #fff;
+  border-right: 1px solid #ddd;
+}
+
+.grid-quote__chrome-pill-btn--minus {
+  background: #f0f0f0;
+}
+
+.grid-quote__chrome-pill-btn:hover {
+  filter: brightness(0.97);
+}
+
+.grid-quote__chrome-pill-btn:focus-visible {
+  outline: 2px solid #007bff;
+  outline-offset: -2px;
+  z-index: 1;
 }
 
 /* Grid testimonial cards: container queries + fluid type (English v1) */
@@ -722,21 +733,39 @@
   touch-action: pan-y;
 }
 
-.deck-carousel__layer {
+/*
+ * Centering: Motion sets transform (scale, x, y) on the inner node. If centering used
+ * left:50% + translateX(-50%) on that same node, Motion would overwrite translateX
+ * and cards would sit with their left edge at 50% (read as right-aligned).
+ * Outer slot flex-centers; inner .deck-layer-motion only receives Motion transforms.
+ */
+.deck-layer-slot {
   position: absolute;
-  left: 50%;
+  left: 0;
+  right: 0;
   top: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+.deck-layer-slot--interactive {
+  pointer-events: auto;
+}
+
+.deck-layer-motion {
   width: 100%;
   max-width: 32rem;
-  transform: translateX(-50%);
+  min-width: 0;
   transform-origin: center top;
 }
 
-.deck-carousel__layer--front {
+.deck-layer-motion--front {
   cursor: grab;
 }
 
-.deck-carousel__layer--front:active {
+.deck-layer-motion--front:active {
   cursor: grabbing;
 }
 
