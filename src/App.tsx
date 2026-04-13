@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useLayoutEffect, useMemo } from 'react';
 import { parseTestimonials } from './lib/parser';
+import sampleTestimonialsCsv from './data/sample-testimonials.csv?raw';
 import {
   Testimonial,
   LayoutMode,
@@ -236,9 +237,7 @@ function App() {
 
   const loadSampleCSV = async () => {
     try {
-      const response = await fetch('/src/data/sample-testimonials.csv');
-      const text = await response.text();
-      const result = parseTestimonials(text);
+      const result = parseTestimonials(sampleTestimonialsCsv);
       const selected = pickRandom(result.testimonials, 6);
       setTestimonials(selected);
       setErrors(result.errors);
