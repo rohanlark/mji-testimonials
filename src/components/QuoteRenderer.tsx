@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useCallback, type ReactNode } from 'react';
+import { useState, useRef, useMemo, useCallback, useEffect, type ReactNode } from 'react';
 import { CSSProperties } from 'react';
 import {
   Testimonial,
@@ -13,6 +13,8 @@ import {
   GridAspectRatio,
   CardSurfaceOverride,
   GlobalCardThemeId,
+  MobileFallbackMode,
+  clampGridSizeOverride,
 } from '../types/testimonial';
 import { resolveCardThemeId } from '../lib/cardThemes';
 import {
@@ -37,6 +39,7 @@ import {
   DEFAULT_LAYOUT_GAP_PX,
   DEFAULT_LAYOUT_MARGIN_PX,
 } from '../lib/layoutSpacing';
+import { getResponsiveLayoutPolicy } from '../lib/responsiveLayoutPolicy';
 
 export function DefaultRevealDeckContent() {
   return (
@@ -84,6 +87,10 @@ export interface TestimonialPreviewProps {
   cardPaddingPx?: number;
   /** When true, force grid tracks to fit a fixed-height preview frame (no outer scroll). */
   fitGridToFrame?: boolean;
+  /** Responsive behavior for very small viewports. */
+  mobileFallbackMode?: MobileFallbackMode;
+  /** Swipe-rail card width in viewport percent (75–85). */
+  swipeCardWidthPct?: number;
 }
 
 /** Renders only the testimonial preview (stack or grid). Used when layout is main | sidebar. */
@@ -112,8 +119,13 @@ export function TestimonialPreview({
   layoutMarginPx = DEFAULT_LAYOUT_MARGIN_PX,
   cardPaddingPx = DEFAULT_CARD_PADDING_PX,
   fitGridToFrame = false,
+  mobileFallbackMode = 'stack',
+  swipeCardWidthPct = 78,
 }: TestimonialPreviewProps) {
   const gridContainerRef = useRef<HTMLDivElement>(null);
+  const layoutShellRef = useRef<HTMLDivElement>(null);
+  const swipeRailRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(1200);
   const [resizePreview, setResizePreview] = useState<{
     id: string;
     size: GridSizeOverride;
@@ -124,6 +136,59 @@ export function TestimonialPreview({
     if (!resizePreview) return gridSizeOverrides;
     return { ...gridSizeOverrides, [resizePreview.id]: resizePreview.size };
   }, [gridSizeOverrides, resizePreview]);
+
+  useEffect(() => {
+    const el = layoutShellRef.current;
+    if (!el) return;
+    const measure = () => setContainerWidth(el.clientWidth || 1200);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const responsive = useMemo(
+    () =>
+      getResponsiveLayoutPolicy({
+        widthPx: containerWidth,
+        baseGapPx: layoutGapPx,
+        baseCardPaddingPx: cardPaddingPx,
+        requestedGridDimensions: gridDimensions,
+        mobileFallbackMode,
+        swipeCardWidthPct,
+        testimonials,
+      }),
+    [
+      containerWidth,
+      layoutGapPx,
+      cardPaddingPx,
+      gridDimensions,
+      mobileFallbackMode,
+      swipeCardWidthPct,
+      testimonials,
+    ]
+  );
+
+  const effectiveLayoutGapPx = responsive.effectiveGapPx;
+  const effectiveCardPaddingPx = responsive.effectiveCardPaddingPx;
+  const effectiveGridDimensions = responsive.effectiveGridDimensions;
+  const showSwipeRail = responsive.useMobileFallback && responsive.resolvedMobileMode === 'swipe';
+  const shouldRenderStack = layoutMode === 'stack' || (layoutMode === 'grid' && responsive.useMobileFallback && !showSwipeRail);
+
+  const handleSwipeRailKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      const rail = swipeRailRef.current;
+      if (!rail) return;
+      const delta = Math.round(rail.clientWidth * 0.82);
+      rail.scrollBy({
+        left: e.key === 'ArrowRight' ? delta : -delta,
+        behavior: 'smooth',
+      });
+      e.preventDefault();
+    },
+    []
+  );
 
   const handleResizePreview = useCallback(
     (testimonialId: string, size: GridSizeOverride | null) => {
@@ -161,19 +226,29 @@ export function TestimonialPreview({
     ]
   );
 
+  const responsiveGridSizeOverrides = useMemo(() => {
+    const next: Record<string, GridSizeOverride> = {};
+    for (const [id, size] of Object.entries(effectiveGridSizeOverrides)) {
+      const clamped = clampGridSizeOverride(size, effectiveGridDimensions);
+      if (clamped !== 'auto') next[id] = clamped;
+    }
+    return next;
+  }, [effectiveGridSizeOverrides, effectiveGridDimensions]);
+
   const placements =
     layoutMode === 'grid'
       ? calculateGridLayout(
           testimonials,
-          gridDimensions.columns,
-          effectiveGridSizeOverrides,
-          gridDimensions.rows
+          effectiveGridDimensions.columns,
+          responsiveGridSizeOverrides,
+          effectiveGridDimensions.rows
         )
       : [];
 
-  if (layoutMode === 'stack') {
+  if (shouldRenderStack) {
     return (
       <div
+        ref={layoutShellRef}
         className="testimonial-layout-shell"
         style={{
           boxSizing: 'border-box',
@@ -186,7 +261,7 @@ export function TestimonialPreview({
           style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: layoutGapPx,
+            gap: effectiveLayoutGapPx,
             width: '100%',
           }}
         >
@@ -203,7 +278,7 @@ export function TestimonialPreview({
               fontScaleOverride={fontScaleOverrides[testimonial.id]}
               cardTheme={resolveCardThemeId(globalCardTheme, cardSurfaceOverrides[testimonial.id])}
               quoteHyphenation={quoteHyphenation}
-              cardPaddingPx={cardPaddingPx}
+              cardPaddingPx={effectiveCardPaddingPx}
               onSelect={
                 onSelectQuote
                   ? () =>
@@ -213,6 +288,65 @@ export function TestimonialPreview({
               isSelected={selectedQuoteId === testimonial.id}
               appearanceControl={makeAppearanceControl(testimonial.id)}
             />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (layoutMode === 'grid' && showSwipeRail) {
+    return (
+      <div
+        ref={layoutShellRef}
+        className="testimonial-layout-shell"
+        style={{
+          boxSizing: 'border-box',
+          width: '100%',
+          padding: layoutMarginPx,
+        }}
+      >
+        <div
+          ref={swipeRailRef}
+          className="testimonial-swipe-rail"
+          role="list"
+          aria-label="Swipe testimonials"
+          tabIndex={0}
+          onKeyDown={handleSwipeRailKeyDown}
+          style={
+            {
+              ['--rail-gap' as string]: `${effectiveLayoutGapPx}px`,
+              ['--rail-card-width' as string]: `${responsive.swipeCardWidthPct}vw`,
+            } as CSSProperties
+          }
+        >
+          {testimonials.map((testimonial) => (
+            <div
+              key={testimonial.id}
+              className="testimonial-swipe-rail__item"
+              role="listitem"
+            >
+              <GridQuote
+                testimonial={testimonial}
+                rowSpan={1}
+                colSpan={1}
+                metadataToggles={metadataToggles}
+                metadataOrder={metadataOrder}
+                onUpdateTestimonial={onUpdateTestimonial}
+                onRequestEdit={onUpdateTestimonial ? onRequestEditQuote : undefined}
+                fontScaleOverride={fontScaleOverrides[testimonial.id]}
+                cardTheme={resolveCardThemeId(globalCardTheme, cardSurfaceOverrides[testimonial.id])}
+                quoteHyphenation={quoteHyphenation}
+                cardPaddingPx={effectiveCardPaddingPx}
+                onSelect={
+                  onSelectQuote
+                    ? () =>
+                        onSelectQuote(selectedQuoteId === testimonial.id ? null : testimonial.id)
+                    : undefined
+                }
+                isSelected={selectedQuoteId === testimonial.id}
+                appearanceControl={makeAppearanceControl(testimonial.id)}
+              />
+            </div>
           ))}
         </div>
       </div>
@@ -254,14 +388,14 @@ export function TestimonialPreview({
 
   try {
     const rowCount = placements.length === 0 ? 1 : calculateGridRows(placements);
-    const cols = gridDimensions.columns;
+    const cols = effectiveGridDimensions.columns;
     const showTrackLines = showGridLines || resizeLinesActive;
 
     const gridResizeControl: GridQuoteResizeControl | undefined = onGridSizeChange
       ? {
           containerRef: gridContainerRef,
           packingRowCount: rowCount,
-          dimensions: gridDimensions,
+          dimensions: effectiveGridDimensions,
           onPreview: handleResizePreview,
           onLinesActive: setResizeLinesActive,
           onCommit: handleResizeCommit,
@@ -277,7 +411,7 @@ export function TestimonialPreview({
       zIndex: 8,
       minWidth: 0,
       minHeight: 0,
-      ['--grid-track-gap' as string]: `${layoutGapPx}px`,
+      ['--grid-track-gap' as string]: `${effectiveLayoutGapPx}px`,
       ['--grid-track-line-color' as string]: 'rgba(0, 0, 0, 0.18)',
     };
 
@@ -288,7 +422,7 @@ export function TestimonialPreview({
       gridTemplateRows: fitGridToFrame
         ? `repeat(${rowCount}, minmax(0, 1fr))`
         : `repeat(${rowCount}, minmax(6rem, auto))`,
-      gap: layoutGapPx,
+      gap: effectiveLayoutGapPx,
       width: '100%',
       height: fitGridToFrame ? '100%' : undefined,
       minHeight: 0,
@@ -297,6 +431,7 @@ export function TestimonialPreview({
 
     return (
       <div
+        ref={layoutShellRef}
         className="testimonial-layout-shell"
         style={{
           boxSizing: 'border-box',
@@ -362,7 +497,7 @@ export function TestimonialPreview({
             isSelected={selectedQuoteId === placement.testimonial.id}
             gridResize={gridResizeControl}
             appearanceControl={makeAppearanceControl(placement.testimonial.id)}
-            cardPaddingPx={cardPaddingPx}
+            cardPaddingPx={effectiveCardPaddingPx}
           />
         ))}
       </div>
@@ -400,6 +535,8 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
   const [layoutGapPx, setLayoutGapPx] = useState(DEFAULT_LAYOUT_GAP_PX);
   const [cardPaddingPx, setCardPaddingPx] = useState(DEFAULT_CARD_PADDING_PX);
+  const [mobileFallbackMode, setMobileFallbackMode] = useState<MobileFallbackMode>('swipe');
+  const [swipeCardWidthPct, setSwipeCardWidthPct] = useState(78);
 
   const editingTestimonial =
     editingQuoteId !== null ? testimonials.find((t) => t.id === editingQuoteId) ?? null : null;
@@ -569,6 +706,8 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
           layoutGapPx={layoutGapPx}
           layoutMarginPx={DEFAULT_LAYOUT_MARGIN_PX}
           cardPaddingPx={cardPaddingPx}
+          mobileFallbackMode={mobileFallbackMode}
+          swipeCardWidthPct={swipeCardWidthPct}
         />
       </div>
       {onUpdateTestimonial ? (
@@ -614,6 +753,10 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
         setLayoutGapPx={setLayoutGapPx}
         cardPaddingPx={cardPaddingPx}
         setCardPaddingPx={setCardPaddingPx}
+        mobileFallbackMode={mobileFallbackMode}
+        setMobileFallbackMode={setMobileFallbackMode}
+        swipeCardWidthPct={swipeCardWidthPct}
+        setSwipeCardWidthPct={setSwipeCardWidthPct}
       />
     </div>
   );

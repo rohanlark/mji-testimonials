@@ -106,6 +106,9 @@ export const LAYOUT_MODE_LABELS: Record<LayoutMode, string> = {
   reveal_deck: 'Reveal',
 };
 
+/** Mobile fallback behavior when responsive mode collapses below one-column grid. */
+export type MobileFallbackMode = 'stack' | 'swipe';
+
 /** Named card surface themes (colours and type weights are defined in `cardThemes.ts`). */
 export const CARD_THEME_IDS = ['light', 'dark', 'teal'] as const;
 export type CardThemeId = (typeof CARD_THEME_IDS)[number];

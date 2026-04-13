@@ -799,6 +799,47 @@
   box-sizing: border-box;
 }
 
+.testimonial-swipe-rail {
+  display: flex;
+  gap: var(--rail-gap, 12px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0 0 2px 0;
+  scroll-snap-type: x mandatory;
+  scroll-padding-left: 12px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.testimonial-swipe-rail:focus-visible {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.testimonial-swipe-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.testimonial-swipe-rail__item {
+  flex: 0 0 var(--rail-card-width, 78vw);
+  min-width: 240px;
+  max-width: 480px;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.testimonial-swipe-rail__item .grid-quote {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .testimonial-swipe-rail {
+    scroll-behavior: auto;
+  }
+}
+
 /* Carousel + reveal decks (spike layouts; Motion-driven) */
 .deck-sr-only {
   position: absolute;

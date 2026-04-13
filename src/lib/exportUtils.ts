@@ -115,6 +115,8 @@ export function generateEmbedCode(
   layoutMarginPx = DEFAULT_LAYOUT_MARGIN_PX,
   cardPaddingPx = DEFAULT_CARD_PADDING_PX
 ): string {
+  // Intentional fallback: responsive mobile swipe behavior in app preview is exported as
+  // static grid/stack markup so embeds stay deterministic across host contexts.
   const hyphenCss = quoteHyphenation ? 'auto' : 'none';
   const gridMetadataBase = cssObjectToString({
     fontFamily: styleConfig.grid.metadata.fontFamily,

@@ -14,6 +14,7 @@ import {
   GridDimensions,
   CardSurfaceOverride,
   GlobalCardThemeId,
+  MobileFallbackMode,
 } from './types/testimonial';
 import { TestimonialPreview } from './components/QuoteRenderer';
 import { Sidebar } from './components/Sidebar';
@@ -70,6 +71,8 @@ function App() {
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
   const [layoutGapPx, setLayoutGapPx] = useState(DEFAULT_LAYOUT_GAP_PX);
   const [cardPaddingPx, setCardPaddingPx] = useState(DEFAULT_CARD_PADDING_PX);
+  const [mobileFallbackMode, setMobileFallbackMode] = useState<MobileFallbackMode>('swipe');
+  const [swipeCardWidthPct, setSwipeCardWidthPct] = useState(78);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewWrapperRef = useRef<HTMLDivElement>(null);
@@ -108,6 +111,8 @@ function App() {
     setEditingQuoteId(null);
     setLayoutGapPx(DEFAULT_LAYOUT_GAP_PX);
     setCardPaddingPx(DEFAULT_CARD_PADDING_PX);
+    setMobileFallbackMode('swipe');
+    setSwipeCardWidthPct(78);
     setResetConfirmOpen(false);
   }, []);
 
@@ -451,6 +456,8 @@ function App() {
                     layoutMarginPx={DEFAULT_LAYOUT_MARGIN_PX}
                     cardPaddingPx={cardPaddingPx}
                     fitGridToFrame={activeAspectRatio !== null}
+                    mobileFallbackMode={mobileFallbackMode}
+                    swipeCardWidthPct={swipeCardWidthPct}
                   />
                 </ErrorBoundary>
               </div>
@@ -609,6 +616,10 @@ function App() {
             setLayoutGapPx={setLayoutGapPx}
             cardPaddingPx={cardPaddingPx}
             setCardPaddingPx={setCardPaddingPx}
+            mobileFallbackMode={mobileFallbackMode}
+            setMobileFallbackMode={setMobileFallbackMode}
+            swipeCardWidthPct={swipeCardWidthPct}
+            setSwipeCardWidthPct={setSwipeCardWidthPct}
           />
         </div>
       ) : (

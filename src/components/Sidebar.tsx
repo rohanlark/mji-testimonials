@@ -13,6 +13,7 @@ import {
   GLOBAL_CARD_THEME_IDS,
   CARD_THEME_LABELS,
   GlobalCardThemeId,
+  MobileFallbackMode,
 } from '../types/testimonial';
 import { calculateGridLayout, sortPlacementsReadingOrder } from '../lib/gridLayout';
 import {
@@ -62,6 +63,10 @@ export interface SidebarProps {
   setLayoutGapPx: (v: number) => void;
   cardPaddingPx: number;
   setCardPaddingPx: (v: number) => void;
+  mobileFallbackMode: MobileFallbackMode;
+  setMobileFallbackMode: (mode: MobileFallbackMode) => void;
+  swipeCardWidthPct: number;
+  setSwipeCardWidthPct: (value: number) => void;
 }
 
 export function Sidebar({
@@ -101,6 +106,10 @@ export function Sidebar({
   setLayoutGapPx,
   cardPaddingPx,
   setCardPaddingPx,
+  mobileFallbackMode,
+  setMobileFallbackMode,
+  swipeCardWidthPct,
+  setSwipeCardWidthPct,
 }: SidebarProps) {
   const [hoveredGridCell, setHoveredGridCell] = useState<{ col: number; row: number } | null>(null);
 
@@ -299,6 +308,49 @@ export function Sidebar({
               +
             </button>
           </div>
+          <div className="layout-spacing-row">
+            <span className="layout-spacing-label">Mobile fallback</span>
+            <button
+              type="button"
+              className={`layout-tab ${mobileFallbackMode === 'stack' ? 'layout-tab-active' : ''}`}
+              onClick={() => setMobileFallbackMode('stack')}
+            >
+              Stack
+            </button>
+            <button
+              type="button"
+              className={`layout-tab ${mobileFallbackMode === 'swipe' ? 'layout-tab-active' : ''}`}
+              onClick={() => setMobileFallbackMode('swipe')}
+            >
+              Swipe
+            </button>
+          </div>
+          {mobileFallbackMode === 'swipe' ? (
+            <div className="layout-spacing-row">
+              <span className="layout-spacing-label">Swipe width</span>
+              <button
+                type="button"
+                className="layout-spacing-btn"
+                aria-label="Decrease swipe card width"
+                disabled={swipeCardWidthPct <= 75}
+                onClick={() => setSwipeCardWidthPct(Math.max(75, swipeCardWidthPct - 1))}
+              >
+                −
+              </button>
+              <span className="layout-spacing-value" aria-live="polite">
+                {swipeCardWidthPct}vw
+              </span>
+              <button
+                type="button"
+                className="layout-spacing-btn"
+                aria-label="Increase swipe card width"
+                disabled={swipeCardWidthPct >= 85}
+                onClick={() => setSwipeCardWidthPct(Math.min(85, swipeCardWidthPct + 1))}
+              >
+                +
+              </button>
+            </div>
+          ) : null}
         </div>
       </section>
 
