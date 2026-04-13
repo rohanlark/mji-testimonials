@@ -21,10 +21,32 @@
   min-width: 0;
 }
 
-.app-header h1 {
-  font-size: 1.5rem;
+.app-header-title-btn {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
   margin: 0 0 0.25rem 0;
+  padding: 0;
+  font: inherit;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
   color: #333;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.app-header-title-btn:hover {
+  color: #0056b3;
+  text-decoration: underline;
+}
+
+.app-header-title-btn:focus-visible {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .app-header p {
@@ -51,6 +73,18 @@
 
 .header-btn:hover {
   background: #0056b3;
+}
+
+.header-btn--secondary {
+  background: #fff;
+  color: #333;
+  border: 1px solid #ccc;
+}
+
+.header-btn--secondary:hover {
+  background: #f5f5f5;
+  border-color: #bbb;
+  color: #333;
 }
 
 /* Paste text modal */
@@ -87,6 +121,7 @@
   font-size: 0.875rem;
   margin: 0 0 1rem 0;
 }
+
 
 .modal-textarea {
   margin-bottom: 1rem;
@@ -270,15 +305,7 @@
   font-size: 0.875rem;
 }
 
-.renderer-section {
-  background: #fff;
-  border-radius: 8px;
-  padding: 2rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-top: 2rem;
-}
-
-/* Preview centered in main area */
+/* Preview centered in main area (sits on app grey; no extra card chrome) */
 .renderer-preview-wrapper {
   display: flex;
   justify-content: center;
@@ -294,12 +321,6 @@
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-}
-
-/* Fixed aspect + scroll: inset matches grid gap (1rem) so cards aren’t flush against the scrollbar */
-.renderer-preview-wrapper--scroll-pad {
-  padding: 1rem;
-  box-sizing: border-box;
 }
 
 .renderer-preview-inner-natural {
@@ -325,11 +346,18 @@
 /* Track guides: subgrid overlay (QuoteRenderer) matches real column/row tracks, including variable row heights */
 .testimonial-grid--lines {
   position: relative;
+  isolation: isolate;
+}
+
+.testimonial-grid__track-overlay {
+  position: relative;
+  z-index: 0;
+  pointer-events: none;
 }
 
 .testimonial-grid--lines > .grid-quote {
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 
 @supports not (grid-template-columns: subgrid) {
@@ -364,6 +392,68 @@
 .layout-grid-lines-toggle input {
   flex-shrink: 0;
   cursor: pointer;
+}
+
+.layout-spacing-block {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #eee;
+}
+
+.layout-spacing-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.layout-spacing-row:first-of-type {
+  margin-top: 0;
+}
+
+.layout-spacing-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8rem;
+  color: #444;
+}
+
+.layout-spacing-value {
+  min-width: 3rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: #222;
+}
+
+.layout-spacing-btn {
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fafafa;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.layout-spacing-btn:hover:not(:disabled) {
+  background: #eee;
+}
+
+.layout-spacing-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.testimonial-layout-shell {
+  min-width: 0;
 }
 
 /* Selected card: ring only so theme (surface + type) stays visible */
@@ -461,46 +551,48 @@
   cursor: nwse-resize;
 }
 
-/* On-card toolbar: 20px pill, Figma — 12px theme dots (2px gap), Font label, unified +/- (cell = handles only) */
-.grid-quote--appearance .grid-quote__body {
-  padding-top: 40px;
-}
+/* Toolbar (.grid-quote__chrome) is absolutely positioned; avoid padding the body to “make room” — that changes layout while the bar still overlaps. */
 
 .grid-quote__chrome {
   box-sizing: border-box;
   position: absolute;
   z-index: 4;
-  left: 8px;
-  top: 8px;
+  left: 12px;
+  top: 10px;
   right: auto;
-  width: max-content;
-  max-width: calc(100% - 16px);
-  height: 20px;
-  padding: 0 6px;
+  width: fit-content;
+  max-width: calc(100% - 24px);
+  min-height: 40px;
+  padding: 6px 8px 6px 10px;
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 4px;
-  border-radius: 8px;
-  background: #fff;
-  border: 1px solid #e5e5e5;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  gap: 12px;
+  border-radius: 12px;
+  background: #f6f6f7;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 6px 20px rgba(0, 0, 0, 0.08);
 }
 
 .grid-quote__chrome-themes {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   flex-shrink: 0;
+  padding-right: 0;
+  width: fit-content;
+  height: 24px;
 }
 
 .grid-quote__chrome-swatch {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 12px;
-  height: 12px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   margin: 0;
   border: none;
@@ -512,13 +604,13 @@
 
 .grid-quote__chrome-swatch:focus-visible {
   outline: 2px solid #007bff;
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
 
 .grid-quote__chrome-dot {
   box-sizing: border-box;
-  width: 12px;
-  height: 12px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -528,21 +620,24 @@
 
 .grid-quote__chrome-dot--light {
   background: #ffffff;
-  border: 1px solid #d8d8d8;
+  border: 1px solid #c8c8cc;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .grid-quote__chrome-dot--dark {
   background: #0d1421;
-  border: 1px solid #0d1421;
+  border: 1px solid #1a2332;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .grid-quote__chrome-dot--teal {
   background: #0a7791;
-  border: 1px solid #0a7791;
+  border: 1px solid #086a82;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .grid-quote__chrome-check {
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 700;
   line-height: 1;
   display: block;
@@ -550,7 +645,7 @@
 }
 
 .grid-quote__chrome-check--light {
-  color: #222;
+  color: #1a1a1a;
 }
 
 .grid-quote__chrome-check--dark,
@@ -560,38 +655,42 @@
 
 .grid-quote__chrome-font-caption {
   font-family: "Inter Tight", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 11px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   line-height: 1;
-  color: #333;
+  color: #2c2c2e;
   flex-shrink: 0;
   user-select: none;
+  margin-right: 8px;
 }
 
 .grid-quote__chrome-font-pill {
   display: flex;
   flex-direction: row;
   align-items: stretch;
-  height: 16px;
+  height: 28px;
   border-radius: 8px;
-  border: 1px solid #ddd;
+  border: 1px solid rgba(0, 0, 0, 0.1);
   overflow: hidden;
   flex-shrink: 0;
   box-sizing: border-box;
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset;
 }
 
 .grid-quote__chrome-pill-btn {
   box-sizing: border-box;
-  min-width: 20px;
+  min-width: 32px;
   height: 100%;
-  padding: 0 5px;
+  padding: 0 8px;
   margin: 0;
   border: none;
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 500;
   line-height: 1;
-  color: #222;
+  color: #1a1a1a;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -599,11 +698,11 @@
 
 .grid-quote__chrome-pill-btn--plus {
   background: #fff;
-  border-right: 1px solid #ddd;
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .grid-quote__chrome-pill-btn--minus {
-  background: #f0f0f0;
+  background: #ebebed;
 }
 
 .grid-quote__chrome-pill-btn:hover {
@@ -671,11 +770,10 @@
   flex-shrink: 0;
 }
 
-/* Single-column layout: same GridQuote cards as grid, full width */
+/* Single-column layout: gap is set inline from layout spacing (see TestimonialPreview). */
 .testimonial-stack {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
   width: 100%;
 }
 
@@ -897,8 +995,7 @@
 }
 
 .sidebar-section-heading-row .sidebar-quotes-actions .quote-list-add,
-.sidebar-section-heading-row .sidebar-quotes-actions .quote-list-shuffle,
-.sidebar-section-heading-row .sidebar-quotes-actions .quote-list-edit-selected {
+.sidebar-section-heading-row .sidebar-quotes-actions .quote-list-shuffle {
   width: auto;
   margin-bottom: 0;
   flex-shrink: 0;
@@ -1234,20 +1331,6 @@
   background: #eee;
 }
 
-.quote-list-edit-selected {
-  padding: 0.4rem 0.5rem;
-  border: 1px solid #007bff;
-  background: #e7f1ff;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  cursor: pointer;
-  color: #0056b3;
-}
-
-.quote-list-edit-selected:hover {
-  background: #d4e7ff;
-}
-
 .quote-list-drag {
   width: 16px;
   flex-shrink: 0;
@@ -1266,6 +1349,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.quote-list-preview--editable {
+  cursor: text;
+  user-select: text;
 }
 
 .quote-list-size {
@@ -1479,26 +1567,89 @@
   text-align: center;
 }
 
-.empty-state {
-  color: #666;
-  font-style: italic;
-  padding: 2rem;
-  text-align: center;
-  margin: 0;
+.empty-state-lead {
+  margin: 0 0 1rem 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.empty-state-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-height: 5.5rem;
+  margin: 0 auto 1rem;
+  max-width: 22rem;
+  padding: 1rem 1.25rem;
+  border: 2px dashed #b8d4f0;
+  border-radius: 8px;
+  background: #fafcff;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  cursor: pointer;
+}
+
+.empty-state-drop:hover {
+  border-color: #7eb8e8;
+  background: #f3f9ff;
+}
+
+.empty-state-drop-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.empty-state-drop-hint {
+  font-size: 0.8125rem;
+  color: #777;
+}
+
+.empty-state-template-link {
+  display: inline-block;
+  margin: 0 0 0.625rem 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #007bff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.empty-state-template-link:hover {
+  color: #0056b3;
 }
 
 .empty-state-add-quote {
   display: inline-block;
-  margin-top: 0.5rem;
-  padding: 0.45rem 0.85rem;
-  border: 1px solid #007bff;
-  background: #e7f1ff;
+  margin-top: 0;
+  padding: 0.4rem 0.75rem;
+  border: none;
+  background: none;
   border-radius: 4px;
   font-size: 0.875rem;
   cursor: pointer;
-  color: #0056b3;
+  color: #007bff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .empty-state-add-quote:hover {
-  background: #d4e7ff;
+  color: #0056b3;
+}
+
+.app-import-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

@@ -29,6 +29,7 @@ interface SortableQuoteRowProps {
   isSelected: boolean;
   onSelect: () => void;
   onRemoveQuote?: (id: string) => void;
+  onEditQuote?: (id: string) => void;
 }
 
 function SortableQuoteRow({
@@ -36,6 +37,7 @@ function SortableQuoteRow({
   isSelected,
   onSelect,
   onRemoveQuote,
+  onEditQuote,
 }: SortableQuoteRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: testimonial.id,
@@ -53,6 +55,7 @@ function SortableQuoteRow({
       className={`quote-list-item ${isSelected ? 'quote-list-item-active' : ''}`}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest('.quote-list-drag, .quote-list-remove')) return;
+        if (e.detail >= 2) return;
         onSelect();
       }}
       role="button"
@@ -72,7 +75,14 @@ function SortableQuoteRow({
       >
         ⋮⋮
       </span>
-      <span className="quote-list-preview" title={testimonial.quote}>
+      <span
+        className={onEditQuote ? 'quote-list-preview quote-list-preview--editable' : 'quote-list-preview'}
+        title={onEditQuote ? `${testimonial.quote}\n\nDouble-click to edit` : testimonial.quote}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          onEditQuote?.(testimonial.id);
+        }}
+      >
         {truncate(testimonial.quote, PREVIEW_LENGTH)}
       </span>
       {onRemoveQuote ? (
@@ -99,6 +109,7 @@ interface QuoteListProps {
   onSelectQuote: (id: string | null) => void;
   selectedQuoteId: string | null;
   onRemoveQuote?: (id: string) => void;
+  onEditQuote?: (id: string) => void;
 }
 
 export function QuoteList({
@@ -107,6 +118,7 @@ export function QuoteList({
   onSelectQuote,
   selectedQuoteId,
   onRemoveQuote,
+  onEditQuote,
 }: QuoteListProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -144,6 +156,7 @@ export function QuoteList({
                 onSelectQuote(selectedQuoteId === t.id ? null : t.id)
               }
               onRemoveQuote={onRemoveQuote}
+              onEditQuote={onEditQuote}
             />
           ))}
         </ul>

@@ -88,13 +88,16 @@ export const METADATA_FIELD_LABELS: Record<MetadataFieldKey, string> = {
   year: 'Year',
   country: 'Country',
   age: 'Age',
-  state: 'State',
+  state: 'State or territory',
   visa: 'Visa',
   occupation: 'Occupation',
 };
 
 /** Grid/stack are static layouts; deck modes are interactive stacks (see spike plan). */
 export type LayoutMode = 'stack' | 'grid' | 'carousel_deck' | 'reveal_deck';
+
+/** Modes shown in the sidebar (carousel/reveal hidden until stable). */
+export const SIDEBAR_LAYOUT_MODES = ['grid', 'stack'] as const satisfies readonly LayoutMode[];
 
 export const LAYOUT_MODE_LABELS: Record<LayoutMode, string> = {
   grid: 'Grid',

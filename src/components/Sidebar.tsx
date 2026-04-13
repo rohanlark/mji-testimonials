@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   LayoutMode,
   LAYOUT_MODE_LABELS,
+  SIDEBAR_LAYOUT_MODES,
   Testimonial,
   GridSizeOverride,
   GridAspectRatio,
@@ -14,6 +15,11 @@ import {
   GlobalCardThemeId,
 } from '../types/testimonial';
 import { calculateGridLayout, sortPlacementsReadingOrder } from '../lib/gridLayout';
+import {
+  CARD_PADDING_BOUNDS,
+  LAYOUT_GAP_BOUNDS,
+  stepLayoutPx,
+} from '../lib/layoutSpacing';
 import { QuoteList } from './QuoteList';
 import { MetadataOrderList } from './MetadataOrderList';
 
@@ -36,8 +42,8 @@ export interface SidebarProps {
   setGlobalCardTheme: (theme: GlobalCardThemeId) => void;
   selectedQuoteId: string | null;
   onSelectQuote: (id: string | null) => void;
-  /** Grid: open modal to edit the selected quote (keyboard / explicit control). */
-  onEditSelectedQuote?: () => void;
+  /** Open quote editor (e.g. double-click preview text in the list). */
+  onEditQuote?: (testimonialId: string) => void;
   metadataOrder: MetadataFieldKey[];
   setMetadataOrder: (order: MetadataFieldKey[]) => void;
   metadataToggles: MetadataToggles;
@@ -52,8 +58,10 @@ export interface SidebarProps {
   onExportSVG: () => void;
   onCopyEmbed: () => void;
   onDownloadHTML: () => void;
-  carouselAutoplay?: boolean;
-  setCarouselAutoplay?: (value: boolean) => void;
+  layoutGapPx: number;
+  setLayoutGapPx: (v: number) => void;
+  cardPaddingPx: number;
+  setCardPaddingPx: (v: number) => void;
 }
 
 export function Sidebar({
@@ -75,7 +83,7 @@ export function Sidebar({
   setGlobalCardTheme,
   selectedQuoteId,
   onSelectQuote,
-  onEditSelectedQuote,
+  onEditQuote,
   metadataOrder,
   setMetadataOrder,
   metadataToggles,
@@ -89,8 +97,10 @@ export function Sidebar({
   onExportSVG,
   onCopyEmbed,
   onDownloadHTML,
-  carouselAutoplay = false,
-  setCarouselAutoplay,
+  layoutGapPx,
+  setLayoutGapPx,
+  cardPaddingPx,
+  setCardPaddingPx,
 }: SidebarProps) {
   const [hoveredGridCell, setHoveredGridCell] = useState<{ col: number; row: number } | null>(null);
 
@@ -139,31 +149,19 @@ export function Sidebar({
       <section className="sidebar-section">
         <h3 className="sidebar-heading">Layout</h3>
         <div className="layout-tabs layout-tabs--grid" role="tablist" aria-label="Layout mode">
-          {(['grid', 'stack', 'carousel_deck', 'reveal_deck'] as const satisfies readonly LayoutMode[]).map(
-            (mode) => (
-              <button
-                key={mode}
-                type="button"
-                role="tab"
-                aria-selected={layoutMode === mode}
-                className={`layout-tab ${layoutMode === mode ? 'layout-tab-active' : ''}`}
-                onClick={() => setLayoutMode(mode)}
-              >
-                {LAYOUT_MODE_LABELS[mode]}
-              </button>
-            )
-          )}
+          {SIDEBAR_LAYOUT_MODES.map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              role="tab"
+              aria-selected={layoutMode === mode}
+              className={`layout-tab ${layoutMode === mode ? 'layout-tab-active' : ''}`}
+              onClick={() => setLayoutMode(mode)}
+            >
+              {LAYOUT_MODE_LABELS[mode]}
+            </button>
+          ))}
         </div>
-        {layoutMode === 'carousel_deck' && setCarouselAutoplay ? (
-          <label className="layout-carousel-autoplay">
-            <input
-              type="checkbox"
-              checked={carouselAutoplay}
-              onChange={(e) => setCarouselAutoplay(e.target.checked)}
-            />
-            Autoplay (pauses on hover or focus)
-          </label>
-        ) : null}
         {layoutMode === 'grid' ? (
           <div className="layout-grid-editor">
             <div className="layout-grid-editor-picker">
@@ -248,27 +246,66 @@ export function Sidebar({
             </div>
           </div>
         ) : null}
+        <div className="layout-spacing-block">
+          <div className="layout-spacing-row">
+            <span className="layout-spacing-label">Card gap</span>
+            <button
+              type="button"
+              className="layout-spacing-btn"
+              aria-label="Decrease space between cards"
+              disabled={layoutGapPx <= LAYOUT_GAP_BOUNDS.min}
+              onClick={() => setLayoutGapPx(stepLayoutPx(layoutGapPx, -1, LAYOUT_GAP_BOUNDS))}
+            >
+              −
+            </button>
+            <span className="layout-spacing-value" aria-live="polite">
+              {layoutGapPx}px
+            </span>
+            <button
+              type="button"
+              className="layout-spacing-btn"
+              aria-label="Increase space between cards"
+              disabled={layoutGapPx >= LAYOUT_GAP_BOUNDS.max}
+              onClick={() => setLayoutGapPx(stepLayoutPx(layoutGapPx, 1, LAYOUT_GAP_BOUNDS))}
+            >
+              +
+            </button>
+          </div>
+          <div className="layout-spacing-row">
+            <span className="layout-spacing-label">Card padding</span>
+            <button
+              type="button"
+              className="layout-spacing-btn"
+              aria-label="Decrease padding inside cards"
+              disabled={cardPaddingPx <= CARD_PADDING_BOUNDS.min}
+              onClick={() =>
+                setCardPaddingPx(stepLayoutPx(cardPaddingPx, -1, CARD_PADDING_BOUNDS))
+              }
+            >
+              −
+            </button>
+            <span className="layout-spacing-value" aria-live="polite">
+              {cardPaddingPx}px
+            </span>
+            <button
+              type="button"
+              className="layout-spacing-btn"
+              aria-label="Increase padding inside cards"
+              disabled={cardPaddingPx >= CARD_PADDING_BOUNDS.max}
+              onClick={() =>
+                setCardPaddingPx(stepLayoutPx(cardPaddingPx, 1, CARD_PADDING_BOUNDS))
+              }
+            >
+              +
+            </button>
+          </div>
+        </div>
       </section>
 
       <section className="sidebar-section">
         <div className="sidebar-section-heading-row">
           <h3 className="sidebar-heading">Quotes</h3>
           <div className="sidebar-quotes-actions">
-            {(layoutMode === 'grid' ||
-              layoutMode === 'stack' ||
-              layoutMode === 'carousel_deck' ||
-              layoutMode === 'reveal_deck') &&
-            selectedQuoteId &&
-            onEditSelectedQuote ? (
-              <button
-                type="button"
-                className="quote-list-edit-selected"
-                onClick={onEditSelectedQuote}
-                aria-label="Edit selected quote"
-              >
-                Edit quote
-              </button>
-            ) : null}
             {onAddQuote ? (
               <button
                 type="button"
@@ -296,6 +333,7 @@ export function Sidebar({
           onSelectQuote={onSelectQuote}
           selectedQuoteId={selectedQuoteId}
           onRemoveQuote={onRemoveQuote}
+          onEditQuote={onEditQuote}
         />
       </section>
 

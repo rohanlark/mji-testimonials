@@ -21,6 +21,11 @@ import { normalizeQuoteForLayout } from './quoteNormalize';
 import { styleConfig } from './styleConfig';
 import { lineHeightForQuoteScale } from './gridQuoteFontScale';
 import { AUTO_FIT_LINE_HEIGHT } from './fitGridQuoteFont';
+import {
+  DEFAULT_CARD_PADDING_PX,
+  DEFAULT_LAYOUT_GAP_PX,
+  DEFAULT_LAYOUT_MARGIN_PX,
+} from './layoutSpacing';
 
 import type { Font as OpentypeFont } from 'opentype.js';
 
@@ -105,7 +110,10 @@ export function generateEmbedCode(
   fontScaleOverrides: Record<string, QuoteFontScaleOverride> = {},
   globalCardTheme: GlobalCardThemeId = 'light',
   cardSurfaceOverrides: Record<string, CardSurfaceOverride> = {},
-  quoteHyphenation = false
+  quoteHyphenation = false,
+  layoutGapPx = DEFAULT_LAYOUT_GAP_PX,
+  layoutMarginPx = DEFAULT_LAYOUT_MARGIN_PX,
+  cardPaddingPx = DEFAULT_CARD_PADDING_PX
 ): string {
   const hyphenCss = quoteHyphenation ? 'auto' : 'none';
   const gridMetadataBase = cssObjectToString({
@@ -116,7 +124,7 @@ export function generateEmbedCode(
     lineHeight: styleConfig.grid.metadata.lineHeight,
   });
 
-  let html = '<!DOCTYPE html>\n<html lang="en">\n<head>\n';
+  let html = '<!DOCTYPE html>\n<html lang="en-AU">\n<head>\n';
   html += '<meta charset="UTF-8">\n';
   html += '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n';
   html += '<title>MJI Testimonials</title>\n';
@@ -137,9 +145,16 @@ export function generateEmbedCode(
     layoutMode === 'reveal_deck';
 
   if (stackLike) {
-    html += '  .testimonial-stack-embed { display: flex; flex-direction: column; gap: 1rem; width: 100%; }\n';
     html +=
-      '  .testimonial-card { border-radius: 8px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between; }\n';
+      '  .testimonial-stack-embed { display: flex; flex-direction: column; gap: ' +
+      layoutGapPx +
+      'px; width: 100%; box-sizing: border-box; padding: ' +
+      layoutMarginPx +
+      'px; }\n';
+    html +=
+      '  .testimonial-card { border-radius: 8px; padding: ' +
+      cardPaddingPx +
+      'px; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; }\n';
     html +=
       '  .stack-quote { font-family: "Lora", Georgia, "Times New Roman", serif; font-style: italic; line-height: 1.5; font-size: 24px; padding: 0; margin-bottom: 16px; text-decoration: none; overflow-wrap: anywhere; hyphens: ' +
       hyphenCss +
@@ -150,9 +165,17 @@ export function generateEmbedCode(
       '  .stack-metadata { font-family: "Inter Tight", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; margin-top: 16px; padding-top: 16px; padding-left: 0; line-height: 1.4; }\n';
   } else {
     html +=
-      '  .grid-container { display: grid; gap: 1rem; width: 100%; align-content: start; }\n';
+      '  .grid-embed-shell { box-sizing: border-box; width: 100%; padding: ' +
+      layoutMarginPx +
+      'px; }\n';
     html +=
-      '  .grid-cell { border-radius: 8px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between; container-type: size; overflow: visible; }\n';
+      '  .grid-container { display: grid; gap: ' +
+      layoutGapPx +
+      'px; width: 100%; align-content: start; }\n';
+    html +=
+      '  .grid-cell { border-radius: 8px; padding: ' +
+      cardPaddingPx +
+      'px; display: flex; flex-direction: column; justify-content: space-between; container-type: size; overflow: visible; box-sizing: border-box; }\n';
     html +=
       '  .grid-quote__inner { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }\n';
     html +=
@@ -198,7 +221,9 @@ export function generateEmbedCode(
       const theme = resolveCardThemeId(globalCardTheme, cardSurfaceOverrides[testimonial.id]);
       const tok = getCardThemeTokens(theme);
       const cardChrome =
-        'border-radius: 8px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between; ' +
+        'border-radius: 8px; padding: ' +
+        cardPaddingPx +
+        'px; display: flex; flex-direction: column; justify-content: space-between; ' +
         `background-color: ${tok.backgroundColor}; border: ${tok.border}; box-shadow: ${tok.boxShadow};`;
       const quoteStyle = `color: ${tok.quoteColor}; font-weight: ${tok.quoteFontWeight};`;
       const metaStyle = `color: ${tok.metadataColor}; font-weight: ${tok.metadataFontWeight}; border-top: 1px solid ${tok.metadataDividerColor};`;
@@ -207,7 +232,7 @@ export function generateEmbedCode(
       html +=
         '  <div class="stack-quote" style="' +
         quoteStyle +
-        '" lang="en">' +
+        '" lang="en-AU">' +
         escapeHtml(normalizeQuoteForLayout(testimonial.quote)) +
         '</div>\n';
       html +=
@@ -228,6 +253,7 @@ export function generateEmbedCode(
     );
     const rowCount = placements.length === 0 ? 1 : calculateGridRows(placements);
     const cols = gridDimensions.columns;
+    html += '<div class="grid-embed-shell">\n';
     html +=
       '<div class="grid-container" style="grid-template-columns: repeat(' +
       cols +
@@ -275,7 +301,7 @@ export function generateEmbedCode(
         '">\n';
       html += '    <div class="grid-quote__inner">\n';
       html +=
-        '      <div class="grid-quote__text" lang="en" style="' +
+        '      <div class="grid-quote__text" lang="en-AU" style="' +
         quoteInline +
         '">' +
         quoteText +
@@ -290,7 +316,7 @@ export function generateEmbedCode(
       html += '  </div>\n';
     });
 
-    html += '</div>\n';
+    html += '</div>\n</div>\n';
   }
 
   html += '</body>\n</html>';
@@ -432,13 +458,19 @@ function wrappedLinesToPaths(
 }
 
 const SVG_PADDING = 24;
-const CARD_GAP = 20;
 const INLINE_CARD_HEIGHT = 160;
 const GRID_GAP = 16;
 const GRID_CELL_WIDTH = 192;
 const GRID_CELL_HEIGHT = 200;
 
 const DEFAULT_GRID_DIMENSIONS: GridDimensions = { columns: 4, rows: 4 };
+
+/** Optional spacing for SVG export; defaults match legacy `SVG_PADDING` / `GRID_GAP` / cell padding. */
+export type SvgExportLayoutSpacing = {
+  layoutGapPx?: number;
+  layoutMarginPx?: number;
+  cardPaddingPx?: number;
+};
 
 /**
  * Programmatic SVG for Illustrator: rect-based cards, text as outlined paths so sizing
@@ -459,12 +491,17 @@ export async function generateSVG(
   gridDimensions?: GridDimensions,
   fontScaleOverrides?: Record<string, QuoteFontScaleOverride>,
   globalCardTheme: GlobalCardThemeId = 'light',
-  cardSurfaceOverrides: Record<string, CardSurfaceOverride> = {}
+  cardSurfaceOverrides: Record<string, CardSurfaceOverride> = {},
+  layoutSpacing?: SvgExportLayoutSpacing
 ): Promise<string> {
   const toggles = metadataToggles ?? { ...DEFAULT_METADATA_TOGGLES };
   const order: MetadataFieldKey[] = metadataOrder ?? [...DEFAULT_METADATA_ORDER];
   const overrides = gridSizeOverrides ?? {};
   const gridDims = gridDimensions ?? DEFAULT_GRID_DIMENSIONS;
+
+  const gapPx = layoutSpacing?.layoutGapPx ?? GRID_GAP;
+  const marginPx = layoutSpacing?.layoutMarginPx ?? SVG_PADDING;
+  const cardPadPx = layoutSpacing?.cardPaddingPx ?? 24;
 
   function metadataParts(t: Testimonial): string[] {
     return getDisplayedMetadataEntries(t, toggles, order).map((e) => e.value);
@@ -473,7 +510,7 @@ export async function generateSVG(
   const quoteFontSize = 24;
   const metaFontSize = 14;
   const rx = 8;
-  const inlineTextWidth = 800 - SVG_PADDING * 2 - 48;
+  const inlineTextWidth = 800 - marginPx * 2 - cardPadPx * 2;
   const inlineQuoteMaxLines = 3;
   const inlineMetaMaxLines = 2;
 
@@ -494,11 +531,11 @@ export async function generateSVG(
   if (stackLikeSvg) {
     const cardHeight = INLINE_CARD_HEIGHT;
     const width = 800;
-    const height = SVG_PADDING * 2 + testimonials.length * (cardHeight + CARD_GAP) - CARD_GAP;
-    let y = SVG_PADDING;
-    const cardWidth = width - SVG_PADDING * 2;
+    const height = marginPx * 2 + testimonials.length * (cardHeight + gapPx) - gapPx;
+    let y = marginPx;
+    const cardWidth = width - marginPx * 2;
 
-    const textX = SVG_PADDING + 24;
+    const textX = marginPx + cardPadPx;
     const parts: string[] = [];
     testimonials.forEach((t) => {
       const theme = resolveCardThemeId(globalCardTheme, cardSurfaceOverrides[t.id]);
@@ -516,16 +553,25 @@ export async function generateSVG(
         inlineQuoteMaxLines
       );
       const metaLines = wordWrapWithFont(meta, metaFont, metaFontSize, inlineTextWidth, inlineMetaMaxLines);
-      const quoteSvg = wrappedLinesToPaths(quoteLines, quoteFont, textX, y + 32, 1.6, quoteFontSize, quoteColor);
-      const metaY = y + cardHeight - 24 - (metaLines.length - 1) * metaFontSize * 1.5;
+      const quoteSvg = wrappedLinesToPaths(
+        quoteLines,
+        quoteFont,
+        textX,
+        y + cardPadPx + 8,
+        1.6,
+        quoteFontSize,
+        quoteColor
+      );
+      const metaY =
+        y + cardHeight - cardPadPx - (metaLines.length - 1) * metaFontSize * 1.5;
       const metaSvg = wrappedLinesToPaths(metaLines, metaFont, textX, metaY, 1.5, metaFontSize, metaColor);
       parts.push(`
   <g>
-    <rect x="${SVG_PADDING}" y="${y}" width="${cardWidth}" height="${cardHeight}" fill="${escapeSvgAttr(cardBg)}" stroke="${escapeSvgAttr(cardBorder)}" stroke-width="1" rx="${rx}" ry="${rx}"/>
+    <rect x="${marginPx}" y="${y}" width="${cardWidth}" height="${cardHeight}" fill="${escapeSvgAttr(cardBg)}" stroke="${escapeSvgAttr(cardBorder)}" stroke-width="1" rx="${rx}" ry="${rx}"/>
     ${quoteSvg}
     ${metaSvg}
   </g>`);
-      y += cardHeight + CARD_GAP;
+      y += cardHeight + gapPx;
     });
 
     return `<?xml version="1.0" encoding="UTF-8"?>
@@ -542,15 +588,15 @@ ${parts.join('')}
     gridDims.rows
   );
   const maxRow = placements.length === 0 ? 1 : Math.max(...placements.map((p) => p.row + p.rowSpan));
-  const width = SVG_PADDING * 2 + gridDims.columns * GRID_CELL_WIDTH + (gridDims.columns - 1) * GRID_GAP;
-  const height = SVG_PADDING * 2 + maxRow * GRID_CELL_HEIGHT + (maxRow - 1) * GRID_GAP;
+  const width = marginPx * 2 + gridDims.columns * GRID_CELL_WIDTH + (gridDims.columns - 1) * gapPx;
+  const height = marginPx * 2 + maxRow * GRID_CELL_HEIGHT + (maxRow - 1) * gapPx;
 
     const gridQuoteFontSizeBase = 20;
     const gridMetaFontSize = 12;
   const gridLineHeightMeta = 1.4;
-  const gridTextPadding = 24;
-  const gridQuoteTop = 36;
-  const gridMetaBottom = 24;
+  const gridTextPadding = cardPadPx;
+  const gridQuoteTop = cardPadPx + 12;
+  const gridMetaBottom = cardPadPx;
   const gridQuoteToMetaGap = 24;
   const gridMetaMaxLines = 4;
   const gridMetaLinesReserved = 2;
@@ -559,10 +605,10 @@ ${parts.join('')}
 
   const gridParts: string[] = [];
   placements.forEach((p) => {
-    const x = SVG_PADDING + p.col * (GRID_CELL_WIDTH + GRID_GAP);
-    const y = SVG_PADDING + p.row * (GRID_CELL_HEIGHT + GRID_GAP);
-    const w = p.colSpan * GRID_CELL_WIDTH + (p.colSpan - 1) * GRID_GAP;
-    const h = p.rowSpan * GRID_CELL_HEIGHT + (p.rowSpan - 1) * GRID_GAP;
+    const x = marginPx + p.col * (GRID_CELL_WIDTH + gapPx);
+    const y = marginPx + p.row * (GRID_CELL_HEIGHT + gapPx);
+    const w = p.colSpan * GRID_CELL_WIDTH + (p.colSpan - 1) * gapPx;
+    const h = p.rowSpan * GRID_CELL_HEIGHT + (p.rowSpan - 1) * gapPx;
     const t = p.testimonial;
     const theme = resolveCardThemeId(globalCardTheme, cardSurfaceOverrides[t.id]);
     const tok = getCardThemeTokens(theme);

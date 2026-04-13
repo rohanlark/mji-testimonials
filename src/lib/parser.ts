@@ -265,18 +265,19 @@ function parseTabSeparated(input: string): ParseResult {
  * Errors are collected but don't stop parsing - allows partial success.
  */
 export function parseTestimonials(input: string): ParseResult {
-  if (!input || !input.trim()) {
+  const text = input.replace(/^\uFEFF/, '');
+  if (!text || !text.trim()) {
     return {
       testimonials: [],
       errors: ['No input provided']
     };
   }
-  
-  const format = detectFormat(input);
-  
+
+  const format = detectFormat(text);
+
   if (format === 'csv') {
-    return parseCSV(input);
+    return parseCSV(text);
   } else {
-    return parseTabSeparated(input);
+    return parseTabSeparated(text);
   }
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useLayoutEffect, useMemo } from 'react';
 import { parseTestimonials } from './lib/parser';
 import {
   Testimonial,
@@ -11,11 +11,10 @@ import {
   QuoteFontScaleOverride,
   GridAspectRatio,
   GridDimensions,
-  getGridAspectRatioCss,
   CardSurfaceOverride,
   GlobalCardThemeId,
 } from './types/testimonial';
-import { TestimonialPreview, DefaultRevealDeckContent } from './components/QuoteRenderer';
+import { TestimonialPreview } from './components/QuoteRenderer';
 import { Sidebar } from './components/Sidebar';
 import { QuoteEditModal } from './components/QuoteEditModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -27,11 +26,29 @@ import {
 import { normalizeQuoteForLayout } from './lib/quoteNormalize';
 import { createEmptyTestimonial } from './lib/createTestimonial';
 import { generateSVG, generateEmbedCode, downloadFile, copyToClipboard } from './lib/exportUtils';
-import { swapQuoteWithNeighborWrapped } from './lib/swapQuoteInOrder';
+import { downloadTestimonialsCsvTemplate } from './lib/testimonialsCsvTemplate';
+import {
+  DEFAULT_CARD_PADDING_PX,
+  DEFAULT_LAYOUT_GAP_PX,
+  DEFAULT_LAYOUT_MARGIN_PX,
+} from './lib/layoutSpacing';
 import './App.css';
 
+function getAspectRatioNumber(ratio: Exclude<GridAspectRatio, 'fit'>, flipped: boolean): number {
+  const base: Record<Exclude<GridAspectRatio, 'fit'>, [number, number]> = {
+    '1:1': [1, 1],
+    '4:5': [4, 5],
+    '16:9': [16, 9],
+    a4: [210, 297],
+  };
+  const [w, h] = base[ratio];
+  if (ratio === '1:1') return 1;
+  const rw = flipped ? h : w;
+  const rh = flipped ? w : h;
+  return rw / rh;
+}
+
 function App() {
-  const [input, setInput] = useState('');
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('grid');
@@ -50,25 +67,106 @@ function App() {
   >({});
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
-  const [pasteModalOpen, setPasteModalOpen] = useState(false);
-  const [carouselAutoplay, setCarouselAutoplay] = useState(false);
+  const [layoutGapPx, setLayoutGapPx] = useState(DEFAULT_LAYOUT_GAP_PX);
+  const [cardPaddingPx, setCardPaddingPx] = useState(DEFAULT_CARD_PADDING_PX);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewWrapperRef = useRef<HTMLDivElement>(null);
+  const [fixedFrameSize, setFixedFrameSize] = useState<{ width: number; height: number } | null>(
+    null
+  );
 
   const editingTestimonial =
     editingQuoteId !== null ? testimonials.find((t) => t.id === editingQuoteId) ?? null : null;
 
   useEffect(() => {
-    if (!pasteModalOpen) return;
+    if (!resetConfirmOpen) return;
     const onEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setPasteModalOpen(false);
+      if (e.key === 'Escape') setResetConfirmOpen(false);
     };
     window.addEventListener('keydown', onEscape);
     return () => window.removeEventListener('keydown', onEscape);
-  }, [pasteModalOpen]);
+  }, [resetConfirmOpen]);
 
-  const handlePaste = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const text = e.target.value;
-    setInput(text);
-    
+  const resetAppState = useCallback(() => {
+    setTestimonials([]);
+    setErrors([]);
+    setLayoutMode('grid');
+    setMetadataToggles(DEFAULT_METADATA_TOGGLES);
+    setMetadataOrder([...DEFAULT_METADATA_ORDER]);
+    setGridSizeOverrides({});
+    setFontScaleOverrides({});
+    setGridAspectRatio('fit');
+    setGridAspectRatioFlipped(false);
+    setGridDimensions({ columns: 3, rows: 3 });
+    setShowGridLines(false);
+    setQuoteHyphenation(false);
+    setGlobalCardTheme('light');
+    setCardSurfaceOverrides({});
+    setSelectedQuoteId(null);
+    setEditingQuoteId(null);
+    setLayoutGapPx(DEFAULT_LAYOUT_GAP_PX);
+    setCardPaddingPx(DEFAULT_CARD_PADDING_PX);
+    setResetConfirmOpen(false);
+  }, []);
+
+  const handleTitleClick = () => {
+    const hasWorkToLose = testimonials.length > 0 || errors.length > 0;
+    if (hasWorkToLose) {
+      setResetConfirmOpen(true);
+    } else {
+      resetAppState();
+    }
+  };
+
+  /** Hidden deck layouts: migrate to grid so users are not stuck on broken modes. */
+  useEffect(() => {
+    if (layoutMode === 'carousel_deck' || layoutMode === 'reveal_deck') {
+      setLayoutMode('grid');
+    }
+  }, [layoutMode]);
+
+  const activeAspectRatio = useMemo(() => {
+    if (layoutMode !== 'grid' || gridAspectRatio === 'fit') return null;
+    return getAspectRatioNumber(gridAspectRatio, gridAspectRatioFlipped);
+  }, [layoutMode, gridAspectRatio, gridAspectRatioFlipped]);
+
+  useLayoutEffect(() => {
+    if (activeAspectRatio === null) {
+      setFixedFrameSize(null);
+      return;
+    }
+    const el = previewWrapperRef.current;
+    if (!el) return;
+
+    const measure = () => {
+      const availableWidth = el.clientWidth;
+      const appMain = el.closest('.app-main') as HTMLElement | null;
+      const containerHeight = appMain?.clientHeight ?? window.innerHeight;
+      const availableHeight = Math.max(280, containerHeight - 48);
+      const width = Math.max(
+        0,
+        Math.floor(Math.min(availableWidth, availableHeight * activeAspectRatio))
+      );
+      const height = width <= 0 ? 0 : Math.floor(width / activeAspectRatio);
+      setFixedFrameSize((prev) =>
+        prev && prev.width === width && prev.height === height ? prev : { width, height }
+      );
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    const appMain = el.closest('.app-main');
+    if (appMain) ro.observe(appMain);
+    window.addEventListener('resize', measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [activeAspectRatio]);
+
+  const applyImportText = useCallback((text: string) => {
     if (text.trim()) {
       const result = parseTestimonials(text);
       setTestimonials(result.testimonials);
@@ -77,6 +175,24 @@ function App() {
       setTestimonials([]);
       setErrors([]);
     }
+  }, []);
+
+  const handleImportFile = useCallback(
+    async (file: File) => {
+      try {
+        const text = await file.text();
+        applyImportText(text);
+      } catch {
+        alert('Could not read that file. Try a .csv or .txt file.');
+      }
+    },
+    [applyImportText]
+  );
+
+  const onImportFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (file) void handleImportFile(file);
   };
 
   const pickRandom = <T,>(arr: T[], n: number): T[] => {
@@ -122,26 +238,12 @@ function App() {
     try {
       const response = await fetch('/src/data/sample-testimonials.csv');
       const text = await response.text();
-      setInput(text);
       const result = parseTestimonials(text);
       const selected = pickRandom(result.testimonials, 6);
       setTestimonials(selected);
       setErrors(result.errors);
     } catch (error) {
       console.error('Failed to load sample CSV:', error);
-    }
-  };
-
-  const loadSampleTab = async () => {
-    try {
-      const response = await fetch('/src/data/sample-testimonials.txt');
-      const text = await response.text();
-      setInput(text);
-      const result = parseTestimonials(text);
-      setTestimonials(result.testimonials);
-      setErrors(result.errors);
-    } catch (error) {
-      console.error('Failed to load sample tab-separated:', error);
     }
   };
 
@@ -177,15 +279,6 @@ function App() {
       return { ...prev, [testimonialId]: surface };
     });
   };
-
-  const handleSwapQuoteOrder = useCallback(
-    (testimonialId: string, delta: -1 | 1) => {
-      setTestimonials((prev) =>
-        swapQuoteWithNeighborWrapped(prev, testimonialId, delta)
-      );
-    },
-    []
-  );
 
   const setMetadataToggle = (field: keyof MetadataToggles, value: boolean) => {
     setMetadataToggles((prev) => ({ ...prev, [field]: value }));
@@ -230,7 +323,12 @@ function App() {
         gridDimensions,
         fontScaleOverrides,
         globalCardTheme,
-        cardSurfaceOverrides
+        cardSurfaceOverrides,
+        {
+          layoutGapPx,
+          layoutMarginPx: DEFAULT_LAYOUT_MARGIN_PX,
+          cardPaddingPx,
+        }
       );
       downloadFile(svgString, 'testimonials.svg', 'image/svg+xml');
     } catch (error) {
@@ -248,7 +346,10 @@ function App() {
         fontScaleOverrides,
         globalCardTheme,
         cardSurfaceOverrides,
-        quoteHyphenation
+        quoteHyphenation,
+        layoutGapPx,
+        DEFAULT_LAYOUT_MARGIN_PX,
+        cardPaddingPx
       );
       await copyToClipboard(embedCode);
       alert('Embed code copied to clipboard!');
@@ -266,7 +367,10 @@ function App() {
       fontScaleOverrides,
       globalCardTheme,
       cardSurfaceOverrides,
-      quoteHyphenation
+      quoteHyphenation,
+      layoutGapPx,
+      DEFAULT_LAYOUT_MARGIN_PX,
+      cardPaddingPx
     );
     downloadFile(embedCode, 'testimonials.html', 'text/html');
   };
@@ -285,29 +389,11 @@ function App() {
       )}
 
       {testimonials.length > 0 ? (
-        <div className="renderer-section">
-          <div
-            className={
-              layoutMode === 'grid' && gridAspectRatio !== 'fit'
-                ? 'renderer-preview-wrapper renderer-preview-wrapper--scroll-pad'
-                : 'renderer-preview-wrapper'
-            }
-            style={
-              layoutMode === 'grid'
-                ? gridAspectRatio === 'fit'
-                  ? {
-                      width: '100%',
-                      maxWidth: 'min(100%, 1200px)',
-                    }
-                  : {
-                      width: '100%',
-                      maxWidth: 'min(100%, 1200px)',
-                      aspectRatio: getGridAspectRatioCss(gridAspectRatio, gridAspectRatioFlipped),
-                      overflow: 'auto',
-                    }
-                : undefined
-            }
-          >
+        <div
+          ref={previewWrapperRef}
+          className="renderer-preview-wrapper"
+          style={{ width: '100%', maxWidth: 'min(100%, 1200px)' }}
+        >
             <div
               className={
                 layoutMode === 'grid'
@@ -320,7 +406,12 @@ function App() {
                 layoutMode === 'grid'
                   ? gridAspectRatio === 'fit'
                     ? { width: '100%' }
-                    : { width: '100%', height: '100%' }
+                    : {
+                        width: fixedFrameSize ? `${fixedFrameSize.width}px` : '100%',
+                        height: fixedFrameSize ? `${fixedFrameSize.height}px` : undefined,
+                        aspectRatio: fixedFrameSize ? undefined : activeAspectRatio ?? undefined,
+                        overflow: 'hidden',
+                      }
                   : undefined
               }
             >
@@ -356,59 +447,78 @@ function App() {
                     onGridSizeChange={setGridSizeOverride}
                     onFontScaleChange={setFontScaleOverride}
                     onCardSurfaceChange={setCardSurfaceOverride}
-                    onSwapQuoteOrder={handleSwapQuoteOrder}
                     quoteHyphenation={quoteHyphenation}
-                    carouselAutoplay={carouselAutoplay}
-                    revealDeckContent={<DefaultRevealDeckContent />}
+                    layoutGapPx={layoutGapPx}
+                    layoutMarginPx={DEFAULT_LAYOUT_MARGIN_PX}
+                    cardPaddingPx={cardPaddingPx}
+                    fitGridToFrame={activeAspectRatio !== null}
                   />
                 </ErrorBoundary>
               </div>
             </div>
           </div>
-        </div>
       ) : (
         <div className="empty-state-section">
-          <p className="empty-state">No testimonials yet. Use the buttons in the header to paste data or load a sample.</p>
+          <p className="empty-state-lead">No testimonials yet</p>
+          <div
+            className="empty-state-drop"
+            role="region"
+            aria-label="Drop a file to import"
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'copy';
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              const file = e.dataTransfer.files?.[0];
+              if (file) void handleImportFile(file);
+            }}
+          >
+            <span className="empty-state-drop-title">Upload CSV file</span>
+            <span className="empty-state-drop-hint">Drag and drop, or click to choose</span>
+          </div>
+          <button
+            type="button"
+            className="empty-state-template-link"
+            onClick={() => downloadTestimonialsCsvTemplate()}
+          >
+            Download CSV template
+          </button>
           <button type="button" className="empty-state-add-quote" onClick={handleAddQuote}>
-            Add quote
+            Add a single quote
           </button>
         </div>
       )}
     </div>
   );
 
-  const pasteModal = pasteModalOpen && (
+  const resetConfirmModal = resetConfirmOpen && (
     <div
       className="modal-overlay"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="paste-modal-title"
-      onClick={() => setPasteModalOpen(false)}
+      aria-labelledby="reset-confirm-title"
+      aria-describedby="reset-confirm-desc"
+      onClick={() => setResetConfirmOpen(false)}
     >
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2 id="paste-modal-title" className="modal-title">Paste testimonial data</h2>
-        <p className="modal-hint">Paste CSV or tab-separated data below. It will be parsed as you type.</p>
-        <textarea
-          className="input-textarea modal-textarea"
-          value={input}
-          onChange={handlePaste}
-          placeholder="Paste CSV or tab-separated testimonial data here..."
-          rows={12}
-          autoFocus
-        />
-        {errors.length > 0 && (
-          <div className="errors-section modal-errors">
-            <h3>Parse Errors ({errors.length})</h3>
-            <ul>
-              {errors.map((error, idx) => (
-                <li key={idx} className="error-item">{error}</li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <h2 id="reset-confirm-title" className="modal-title">
+          Start over?
+        </h2>
+        <p id="reset-confirm-desc" className="modal-hint">
+          Any testimonials, pasted data, and layout settings will be cleared. This can’t be undone.
+        </p>
         <div className="modal-actions">
-          <button type="button" className="modal-btn-primary" onClick={() => setPasteModalOpen(false)}>
-            Done
+          <button
+            type="button"
+            className="modal-btn-secondary"
+            onClick={() => setResetConfirmOpen(false)}
+          >
+            Cancel
+          </button>
+          <button type="button" className="modal-btn-primary" onClick={resetAppState}>
+            Clear and start over
           </button>
         </div>
       </div>
@@ -419,23 +529,35 @@ function App() {
     <div className="app">
       <header className="app-header">
         <div className="app-header-left">
-          <h1>MJI Testimonials Tool</h1>
-          <p>Visualize and export worker testimonials</p>
+          <button
+            type="button"
+            className="app-header-title-btn"
+            onClick={handleTitleClick}
+            aria-label="MJI Testimonials Tool — return to landing page"
+          >
+            MJI Testimonials Tool
+          </button>
+          <p>Visualise and export worker testimonials</p>
         </div>
         <div className="app-header-actions">
-          <button type="button" className="header-btn" onClick={() => setPasteModalOpen(true)}>
-            Paste text
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="app-import-file-input"
+            accept=".csv,.txt,text/csv,text/plain"
+            aria-label="Upload CSV or tab-separated text file"
+            onChange={onImportFileInputChange}
+          />
+          <button type="button" className="header-btn header-btn--secondary" onClick={loadSampleCSV}>
+            Load sample CSV
           </button>
-          <button type="button" className="header-btn" onClick={loadSampleCSV}>
-            Load Sample CSV
-          </button>
-          <button type="button" className="header-btn" onClick={loadSampleTab}>
-            Load Sample Tab-Separated
+          <button type="button" className="header-btn" onClick={() => fileInputRef.current?.click()}>
+            Upload file
           </button>
         </div>
       </header>
 
-      {pasteModal}
+      {resetConfirmModal}
 
       <QuoteEditModal
         testimonial={editingTestimonial}
@@ -470,9 +592,7 @@ function App() {
             setGlobalCardTheme={setGlobalCardTheme}
             selectedQuoteId={selectedQuoteId}
             onSelectQuote={setSelectedQuoteId}
-            onEditSelectedQuote={() => {
-              if (selectedQuoteId) setEditingQuoteId(selectedQuoteId);
-            }}
+            onEditQuote={(id) => setEditingQuoteId(id)}
             metadataOrder={metadataOrder}
             setMetadataOrder={setMetadataOrder}
             metadataToggles={metadataToggles}
@@ -486,8 +606,10 @@ function App() {
             onExportSVG={handleExportSVG}
             onCopyEmbed={handleCopyEmbed}
             onDownloadHTML={handleDownloadHTML}
-            carouselAutoplay={carouselAutoplay}
-            setCarouselAutoplay={setCarouselAutoplay}
+            layoutGapPx={layoutGapPx}
+            setLayoutGapPx={setLayoutGapPx}
+            cardPaddingPx={cardPaddingPx}
+            setCardPaddingPx={setCardPaddingPx}
           />
         </div>
       ) : (

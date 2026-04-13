@@ -13,7 +13,7 @@ import {
   CARD_THEME_LABELS,
 } from '../types/testimonial';
 import {
-  QUOTE_FONT_SCALE_OPTIONS,
+  MANUAL_FONT_SCALE_SEQUENCE,
   stepQuoteFontScale,
 } from '../lib/quoteCardAppearanceOptions';
 import { styleConfig } from '../lib/styleConfig';
@@ -22,6 +22,7 @@ import { getDisplayedMetadataEntries } from '../lib/metadataNormalize';
 import { normalizeQuoteForLayout } from '../lib/quoteNormalize';
 import { lineHeightForQuoteScale } from '../lib/gridQuoteFontScale';
 import { AUTO_FIT_LINE_HEIGHT, measureAutoQuoteFontSizePx } from '../lib/fitGridQuoteFont';
+import { DEFAULT_CARD_PADDING_PX } from '../lib/layoutSpacing';
 import {
   computeSpannedCellsFromPointerDelta,
   readGridResizeSteps,
@@ -55,9 +56,6 @@ export interface GridQuoteAppearanceControl {
   onFontScaleChange: (scale: QuoteFontScaleOverride) => void;
   cardSurface: CardSurfaceOverride;
   onCardSurfaceChange: (surface: CardSurfaceOverride) => void;
-  /** Swap with neighbor in testimonials order (wraps). Omitted when list reordering unavailable. */
-  onSwapQuoteOrder?: (delta: -1 | 1) => void;
-  quoteCountInList: number;
 }
 
 interface GridQuoteProps {
@@ -81,6 +79,8 @@ interface GridQuoteProps {
   gridResize?: GridQuoteResizeControl;
   /** When set and the card is selected, show compact appearance controls on the card. */
   appearanceControl?: GridQuoteAppearanceControl;
+  /** Inner padding of the card (inset before quote and metadata). */
+  cardPaddingPx?: number;
 }
 
 export function GridQuote({
@@ -100,7 +100,9 @@ export function GridQuote({
   quoteHyphenation = false,
   gridResize,
   appearanceControl,
+  cardPaddingPx = DEFAULT_CARD_PADDING_PX,
 }: GridQuoteProps) {
+  type ManualScale = (typeof MANUAL_FONT_SCALE_SEQUENCE)[number];
   const displayedMetadata = getDisplayedMetadataEntries(testimonial, metadataToggles, metadataOrder);
   const tokens = getCardThemeTokens(cardTheme);
 
@@ -116,11 +118,6 @@ export function GridQuote({
   const [autoFontPx, setAutoFontPx] = useState<number | null>(null);
 
   useLayoutEffect(() => {
-    if (!isAuto) {
-      setAutoFontPx(null);
-      return;
-    }
-
     const inner = innerRef.current;
     const text = textRef.current;
     if (!inner || !text) return;
@@ -151,7 +148,7 @@ export function GridQuote({
       cancelled = true;
       ro?.disconnect();
     };
-  }, [isAuto, displayQuote, metadataSig, colSpan, rowSpan, testimonial.id]);
+  }, [displayQuote, metadataSig, colSpan, rowSpan, testimonial.id, cardPaddingPx]);
 
   const resizeSessionRef = useRef<{
     pointerId: number;
@@ -168,12 +165,9 @@ export function GridQuote({
   const showResizeHandles = Boolean(gridResize && isSelected && gridRow && gridColumn);
   const showAppearanceChrome = Boolean(isSelected && appearanceControl);
 
-  const fontScaleLabel =
-    QUOTE_FONT_SCALE_OPTIONS.find((o) => o.value === (appearanceControl?.fontScale ?? 'auto'))
-      ?.label ?? 'Auto';
-
   const cellStyle: CSSProperties = {
     ...styleConfig.grid.cell,
+    padding: `${cardPaddingPx}px`,
     backgroundColor: tokens.backgroundColor,
     border: tokens.border,
     boxShadow: tokens.boxShadow,
@@ -182,6 +176,9 @@ export function GridQuote({
     ...(gridRow && { gridRow }),
     ...(gridColumn && { gridColumn }),
     ...(onSelect && { cursor: 'pointer' }),
+    // Keep default cards content-sized so row tracks can collapse after text shrinks.
+    // Spanning cards still fill their allocated tracks to respect manual grid sizing.
+    alignSelf: rowSpan > 1 ? 'stretch' : 'start',
     ['--grid-quote-scale' as string]: manualScale,
     ['--grid-quote-line-height' as string]: lineHeightCss,
   };
@@ -204,6 +201,44 @@ export function GridQuote({
     ...(isAuto && autoFontPx != null
       ? { fontSize: `${autoFontPx}px`, lineHeight: AUTO_FIT_LINE_HEIGHT }
       : {}),
+  };
+
+  const getMaxAllowedScaleTier = (): ManualScale | null => {
+    const textEl = textRef.current;
+    if (!textEl || autoFontPx == null || !Number.isFinite(autoFontPx) || autoFontPx <= 0) {
+      return null;
+    }
+
+    const currentPx = parseFloat(window.getComputedStyle(textEl).fontSize);
+    if (!Number.isFinite(currentPx) || currentPx <= 0 || manualScale <= 0) {
+      return null;
+    }
+
+    const basePx = currentPx / manualScale;
+    if (!Number.isFinite(basePx) || basePx <= 0) {
+      return null;
+    }
+
+    const rawMaxScale = autoFontPx / basePx;
+    const minScale = MANUAL_FONT_SCALE_SEQUENCE[0];
+    const maxScale = Math.max(minScale, rawMaxScale);
+    const tier = [...MANUAL_FONT_SCALE_SEQUENCE]
+      .reverse()
+      .find((v) => v <= maxScale + 0.0001);
+    return tier ?? minScale;
+  };
+
+  const stepScaleWithCap = (
+    current: QuoteFontScaleOverride,
+    direction: -1 | 1
+  ): QuoteFontScaleOverride => {
+    const candidate = stepQuoteFontScale(current, direction);
+    if (direction < 0 || candidate === 'auto') return candidate;
+
+    const maxTier = getMaxAllowedScaleTier();
+    if (maxTier == null || candidate <= maxTier) return candidate;
+    if (current !== 'auto' && current > maxTier) return current;
+    return maxTier;
   };
 
   const startResizeDrag = (axis: GridResizeAxis) => (e: React.PointerEvent) => {
@@ -299,11 +334,22 @@ export function GridQuote({
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 onSelect();
+                return;
+              }
+              if (!isSelected || !appearanceControl) return;
+              const isIncreaseKey = e.key === '+' || e.key === '=' || e.key === 'NumpadAdd';
+              const isDecreaseKey = e.key === '-' || e.key === '_' || e.key === 'NumpadSubtract';
+              if (!isIncreaseKey && !isDecreaseKey) return;
+              e.preventDefault();
+              const direction: -1 | 1 = isIncreaseKey ? 1 : -1;
+              const nextScale = stepScaleWithCap(appearanceControl.fontScale, direction);
+              if (nextScale !== appearanceControl.fontScale) {
+                appearanceControl.onFontScaleChange(nextScale);
               }
             }
           : undefined
       }
-      lang="en"
+      lang="en-AU"
     >
       {showAppearanceChrome && appearanceControl ? (
         <div
@@ -327,7 +373,7 @@ export function GridQuote({
                 <button
                   key={tid}
                   type="button"
-                  className={`grid-quote__chrome-theme-seg ${pressed ? 'grid-quote__chrome-theme-seg--active' : ''}`}
+                  className="grid-quote__chrome-swatch"
                   role="radio"
                   aria-checked={pressed}
                   aria-label={`${CARD_THEME_LABELS[tid]} card theme`}
@@ -335,72 +381,56 @@ export function GridQuote({
                   onClick={() => appearanceControl.onCardSurfaceChange(tid)}
                 >
                   <span
-                    className={`grid-quote__chrome-theme-icon grid-quote__chrome-theme-icon--${tid}`}
+                    className={`grid-quote__chrome-dot grid-quote__chrome-dot--${tid}`}
                     aria-hidden
-                  />
+                  >
+                    {pressed ? (
+                      <span className={`grid-quote__chrome-check grid-quote__chrome-check--${tid}`}>
+                        ✓
+                      </span>
+                    ) : null}
+                  </span>
                 </button>
               );
             })}
           </div>
 
-          <div className="grid-quote__chrome-size" role="group" aria-label="Text size">
+          <span className="grid-quote__chrome-font-caption" aria-hidden>
+            Font
+          </span>
+
+          <div
+            className="grid-quote__chrome-font-pill"
+            role="group"
+            aria-label="Font size"
+          >
+            {(() => {
+              const nextUp = stepScaleWithCap(appearanceControl.fontScale, 1);
+              const nextDown = stepScaleWithCap(appearanceControl.fontScale, -1);
+              return (
+                <>
             <button
               type="button"
-              className="grid-quote__chrome-step"
-              aria-label="Smaller text"
-              onClick={() =>
-                appearanceControl.onFontScaleChange(
-                  stepQuoteFontScale(appearanceControl.fontScale, -1)
-                )
-              }
-            >
-              −
-            </button>
-            <span className="grid-quote__chrome-size-label" aria-live="polite">
-              {fontScaleLabel}
-            </span>
-            <button
-              type="button"
-              className="grid-quote__chrome-step"
+              className="grid-quote__chrome-pill-btn grid-quote__chrome-pill-btn--plus"
               aria-label="Larger text"
-              onClick={() =>
-                appearanceControl.onFontScaleChange(
-                  stepQuoteFontScale(appearanceControl.fontScale, 1)
-                )
-              }
+              disabled={nextUp === appearanceControl.fontScale}
+              onClick={() => appearanceControl.onFontScaleChange(nextUp)}
             >
               +
             </button>
-          </div>
-
-          {appearanceControl.onSwapQuoteOrder &&
-          appearanceControl.quoteCountInList >= 2 ? (
-            <div
-              className="grid-quote__chrome-order"
-              role="group"
-              aria-label="Quote order in list"
+            <button
+              type="button"
+              className="grid-quote__chrome-pill-btn grid-quote__chrome-pill-btn--minus"
+              aria-label="Smaller text"
+              disabled={nextDown === appearanceControl.fontScale}
+              onClick={() => appearanceControl.onFontScaleChange(nextDown)}
             >
-              <button
-                type="button"
-                className="grid-quote__chrome-step grid-quote__chrome-order-btn"
-                aria-label="Move earlier in quote order (wraps to end)"
-                title="Earlier — wraps"
-                onClick={() => appearanceControl.onSwapQuoteOrder?.(-1)}
-              >
-                ↑
-              </button>
-              <span className="grid-quote__chrome-order-label">Order</span>
-              <button
-                type="button"
-                className="grid-quote__chrome-step grid-quote__chrome-order-btn"
-                aria-label="Move later in quote order (wraps to start)"
-                title="Later — wraps"
-                onClick={() => appearanceControl.onSwapQuoteOrder?.(1)}
-              >
-                ↓
-              </button>
-            </div>
-          ) : null}
+              −
+            </button>
+                </>
+              );
+            })()}
+          </div>
         </div>
       ) : null}
       <div
@@ -417,7 +447,7 @@ export function GridQuote({
         }
       >
         <div className="grid-quote__inner" ref={innerRef}>
-          <div className="grid-quote__text" ref={textRef} lang="en" style={textStyle}>
+          <div className="grid-quote__text" ref={textRef} lang="en-AU" style={textStyle}>
             {displayQuote}
           </div>
         </div>

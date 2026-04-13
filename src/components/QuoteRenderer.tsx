@@ -32,12 +32,17 @@ import { normalizeQuoteForLayout } from '../lib/quoteNormalize';
 import { exportToSVG, generateEmbedCode, downloadFile, copyToClipboard } from '../lib/exportUtils';
 import { CarouselDeckLayout } from './CarouselDeckLayout';
 import { RevealDeckLayout } from './RevealDeckLayout';
+import {
+  DEFAULT_CARD_PADDING_PX,
+  DEFAULT_LAYOUT_GAP_PX,
+  DEFAULT_LAYOUT_MARGIN_PX,
+} from '../lib/layoutSpacing';
 
 export function DefaultRevealDeckContent() {
   return (
     <div className="deck-reveal__placeholder">
       <p className="deck-reveal__stat">92%</p>
-      <p className="deck-reveal__lede">Year-one retention among workers who completed the program (spike placeholder).</p>
+      <p className="deck-reveal__lede">Year-one retention among workers who completed the programme (spike placeholder).</p>
     </div>
   );
 }
@@ -71,6 +76,14 @@ export interface TestimonialPreviewProps {
   carouselAutoplay?: boolean;
   /** Reveal deck: content shown after all cards are dismissed. */
   revealDeckContent?: ReactNode;
+  /** Space between cards (grid `gap` and stack flex gap). */
+  layoutGapPx?: number;
+  /** Padding inset around the whole grid/stack inside the preview. */
+  layoutMarginPx?: number;
+  /** Padding inside each card before quote and metadata. */
+  cardPaddingPx?: number;
+  /** When true, force grid tracks to fit a fixed-height preview frame (no outer scroll). */
+  fitGridToFrame?: boolean;
 }
 
 /** Renders only the testimonial preview (stack or grid). Used when layout is main | sidebar. */
@@ -95,6 +108,10 @@ export function TestimonialPreview({
   quoteHyphenation = false,
   carouselAutoplay = false,
   revealDeckContent,
+  layoutGapPx = DEFAULT_LAYOUT_GAP_PX,
+  layoutMarginPx = DEFAULT_LAYOUT_MARGIN_PX,
+  cardPaddingPx = DEFAULT_CARD_PADDING_PX,
+  fitGridToFrame = false,
 }: TestimonialPreviewProps) {
   const gridContainerRef = useRef<HTMLDivElement>(null);
   const [resizePreview, setResizePreview] = useState<{
@@ -156,30 +173,48 @@ export function TestimonialPreview({
 
   if (layoutMode === 'stack') {
     return (
-      <div className="testimonial-stack">
-        {testimonials.map((testimonial) => (
-          <GridQuote
-            key={testimonial.id}
-            testimonial={testimonial}
-            rowSpan={1}
-            colSpan={1}
-            metadataToggles={metadataToggles}
-            metadataOrder={metadataOrder}
-            onUpdateTestimonial={onUpdateTestimonial}
-            onRequestEdit={onUpdateTestimonial ? onRequestEditQuote : undefined}
-            fontScaleOverride={fontScaleOverrides[testimonial.id]}
-            cardTheme={resolveCardThemeId(globalCardTheme, cardSurfaceOverrides[testimonial.id])}
-            quoteHyphenation={quoteHyphenation}
-            onSelect={
-              onSelectQuote
-                ? () =>
-                    onSelectQuote(selectedQuoteId === testimonial.id ? null : testimonial.id)
-                : undefined
-            }
-            isSelected={selectedQuoteId === testimonial.id}
-            appearanceControl={makeAppearanceControl(testimonial.id)}
-          />
-        ))}
+      <div
+        className="testimonial-layout-shell"
+        style={{
+          boxSizing: 'border-box',
+          width: '100%',
+          padding: layoutMarginPx,
+        }}
+      >
+        <div
+          className="testimonial-stack"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: layoutGapPx,
+            width: '100%',
+          }}
+        >
+          {testimonials.map((testimonial) => (
+            <GridQuote
+              key={testimonial.id}
+              testimonial={testimonial}
+              rowSpan={1}
+              colSpan={1}
+              metadataToggles={metadataToggles}
+              metadataOrder={metadataOrder}
+              onUpdateTestimonial={onUpdateTestimonial}
+              onRequestEdit={onUpdateTestimonial ? onRequestEditQuote : undefined}
+              fontScaleOverride={fontScaleOverrides[testimonial.id]}
+              cardTheme={resolveCardThemeId(globalCardTheme, cardSurfaceOverrides[testimonial.id])}
+              quoteHyphenation={quoteHyphenation}
+              cardPaddingPx={cardPaddingPx}
+              onSelect={
+                onSelectQuote
+                  ? () =>
+                      onSelectQuote(selectedQuoteId === testimonial.id ? null : testimonial.id)
+                  : undefined
+              }
+              isSelected={selectedQuoteId === testimonial.id}
+              appearanceControl={makeAppearanceControl(testimonial.id)}
+            />
+          ))}
+        </div>
       </div>
     );
   }
@@ -247,15 +282,26 @@ export function TestimonialPreview({
     const gridContainerStyle: CSSProperties = {
       display: 'grid',
       gridTemplateColumns: `repeat(${cols}, 1fr)`,
-      // Auto-growing rows: content sets height; floor keeps rhythm (preview may scroll inside aspect wrapper).
-      gridTemplateRows: `repeat(${rowCount}, minmax(6rem, auto))`,
-      gap: '1rem',
+      // Fit-mode preserves content-driven row height; fixed-frame mode compresses rows to frame height.
+      gridTemplateRows: fitGridToFrame
+        ? `repeat(${rowCount}, minmax(0, 1fr))`
+        : `repeat(${rowCount}, minmax(6rem, auto))`,
+      gap: layoutGapPx,
       width: '100%',
+      height: fitGridToFrame ? '100%' : undefined,
       minHeight: 0,
       alignContent: 'start',
     };
 
     return (
+      <div
+        className="testimonial-layout-shell"
+        style={{
+          boxSizing: 'border-box',
+          width: '100%',
+          padding: layoutMarginPx,
+        }}
+      >
       <div
         ref={gridContainerRef}
         className={
@@ -314,8 +360,10 @@ export function TestimonialPreview({
             isSelected={selectedQuoteId === placement.testimonial.id}
             gridResize={gridResizeControl}
             appearanceControl={makeAppearanceControl(placement.testimonial.id)}
+            cardPaddingPx={cardPaddingPx}
           />
         ))}
+      </div>
       </div>
     );
   } catch (error) {
@@ -348,7 +396,8 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
   >({});
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
-  const [carouselAutoplay, setCarouselAutoplay] = useState(false);
+  const [layoutGapPx, setLayoutGapPx] = useState(DEFAULT_LAYOUT_GAP_PX);
+  const [cardPaddingPx, setCardPaddingPx] = useState(DEFAULT_CARD_PADDING_PX);
 
   const editingTestimonial =
     editingQuoteId !== null ? testimonials.find((t) => t.id === editingQuoteId) ?? null : null;
@@ -447,7 +496,10 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
         fontScaleOverrides,
         globalCardTheme,
         cardSurfaceOverrides,
-        quoteHyphenation
+        quoteHyphenation,
+        layoutGapPx,
+        DEFAULT_LAYOUT_MARGIN_PX,
+        cardPaddingPx
       );
       await copyToClipboard(embedCode);
       alert('Embed code copied to clipboard!');
@@ -465,7 +517,10 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
       fontScaleOverrides,
       globalCardTheme,
       cardSurfaceOverrides,
-      quoteHyphenation
+      quoteHyphenation,
+      layoutGapPx,
+      DEFAULT_LAYOUT_MARGIN_PX,
+      cardPaddingPx
     );
     downloadFile(embedCode, 'testimonials.html', 'text/html');
   };
@@ -509,8 +564,9 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
           onFontScaleChange={setFontScaleOverride}
           onCardSurfaceChange={setCardSurfaceOverride}
           quoteHyphenation={quoteHyphenation}
-          carouselAutoplay={carouselAutoplay}
-          revealDeckContent={<DefaultRevealDeckContent />}
+          layoutGapPx={layoutGapPx}
+          layoutMarginPx={DEFAULT_LAYOUT_MARGIN_PX}
+          cardPaddingPx={cardPaddingPx}
         />
       </div>
       {onUpdateTestimonial ? (
@@ -538,13 +594,7 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
         setGlobalCardTheme={setGlobalCardTheme}
         selectedQuoteId={selectedQuoteId}
         onSelectQuote={setSelectedQuoteId}
-        onEditSelectedQuote={
-          onUpdateTestimonial
-            ? () => {
-                if (selectedQuoteId) setEditingQuoteId(selectedQuoteId);
-              }
-            : undefined
-        }
+        onEditQuote={onUpdateTestimonial ? (id) => setEditingQuoteId(id) : undefined}
         metadataOrder={metadataOrder}
         setMetadataOrder={setMetadataOrder}
         metadataToggles={metadataToggles}
@@ -555,11 +605,13 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
         setShowGridLines={setShowGridLines}
         quoteHyphenation={quoteHyphenation}
         setQuoteHyphenation={setQuoteHyphenation}
-        carouselAutoplay={carouselAutoplay}
-        setCarouselAutoplay={setCarouselAutoplay}
         onExportSVG={handleExportSVG}
         onCopyEmbed={handleCopyEmbed}
         onDownloadHTML={handleDownloadHTML}
+        layoutGapPx={layoutGapPx}
+        setLayoutGapPx={setLayoutGapPx}
+        cardPaddingPx={cardPaddingPx}
+        setCardPaddingPx={setCardPaddingPx}
       />
     </div>
   );
