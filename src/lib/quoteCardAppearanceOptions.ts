@@ -11,13 +11,12 @@ export const QUOTE_FONT_SCALE_OPTIONS: { value: QuoteFontScaleOverride; label: s
   { value: 1.4, label: 'XL' },
 ];
 
-type ManualQuoteFontScale = Exclude<QuoteFontScaleOverride, 'auto'>;
-
-/** ± only moves among fixed scales; `auto` is left via the picker, not by stepping. */
-export const MANUAL_FONT_SCALE_SEQUENCE: ManualQuoteFontScale[] = [0.8, 0.9, 1, 1.1, 1.2, 1.4];
+export const MIN_FONT_SCALE = 0.8;
+export const MAX_FONT_SCALE = 4;
+export const FONT_SCALE_STEP = 0.1;
 
 /**
- * Step type scale among manual tiers only (no wrap).
+ * Step type scale with linear increments (no wrap).
  * From `auto`, the first ± treats the card as medium (1) and steps to the neighbour tier,
  * so manual adjustment never cycles through `auto`.
  */
@@ -25,19 +24,8 @@ export function stepQuoteFontScale(
   current: QuoteFontScaleOverride,
   direction: -1 | 1
 ): QuoteFontScaleOverride {
-  const baselineIndex = MANUAL_FONT_SCALE_SEQUENCE.indexOf(1);
-  const i0 =
-    current === 'auto'
-      ? baselineIndex
-      : MANUAL_FONT_SCALE_SEQUENCE.indexOf(current as ManualQuoteFontScale);
-  const i = i0 === -1 ? baselineIndex : i0;
-  const n = MANUAL_FONT_SCALE_SEQUENCE.length;
-
-  if (current === 'auto') {
-    const j = i + direction;
-    return MANUAL_FONT_SCALE_SEQUENCE[Math.max(0, Math.min(n - 1, j))];
-  }
-
-  const j = i + direction;
-  return MANUAL_FONT_SCALE_SEQUENCE[Math.max(0, Math.min(n - 1, j))];
+  const base = current === 'auto' ? 1 : current;
+  const raw = base + direction * FONT_SCALE_STEP;
+  const clamped = Math.max(MIN_FONT_SCALE, Math.min(MAX_FONT_SCALE, raw));
+  return Number(clamped.toFixed(1));
 }

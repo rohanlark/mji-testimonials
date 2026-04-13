@@ -9,19 +9,10 @@ const MAX_PX = 200;
 const FIT_ITERATIONS = 24;
 
 /**
- * Upper bound for auto font from column width alone. Grid items use align-stretch, so
- * `areaHeight` is often the full row height (driven by taller neighbors). If we only bound
- * the binary search by height, narrow cells keep an enormous vertical budget and the
- * chosen font stays huge when width shrinks. Capping by width ties type size to the
- * measure column (readable line length / density).
+ * Width-led target for auto font. This decouples chosen type size from transient
+ * stretched row height and prevents stale-tall feedback loops in equal-height rows.
  */
 const MAX_FONT_TO_CELL_WIDTH = 0.34;
-
-/**
- * Loose upper bound from height for the search window (binary search still requires
- * scrollHeight <= areaHeight, so this only needs to exceed the true optimum).
- */
-const HI_SLACK_FROM_HEIGHT = 1.12;
 
 /**
  * Largest font-size (px) for which `textEl`'s laid-out content height fits in `areaHeight`,
@@ -48,11 +39,21 @@ export function measureAutoQuoteFontSizePx(
   textEl.style.width = `${w}px`;
   textEl.style.lineHeight = String(lineHeightMult);
 
+  const maxByWidth = Math.max(MIN_PX, Math.min(MAX_PX, areaWidth * MAX_FONT_TO_CELL_WIDTH));
+  textEl.style.fontSize = `${maxByWidth}px`;
+
+  // In normal cases we keep the deterministic width-led size.
+  // Only if vertical space is genuinely constrained do we solve by height.
+  if (textEl.scrollHeight <= areaHeight + 0.5) {
+    textEl.style.fontSize = prev.fontSize;
+    textEl.style.lineHeight = prev.lineHeight;
+    textEl.style.width = prev.width;
+    const rounded = Math.round(maxByWidth * 4) / 4;
+    return Math.max(MIN_PX, Math.min(MAX_PX, rounded));
+  }
+
   let lo = MIN_PX;
-  const maxByWidth = areaWidth * MAX_FONT_TO_CELL_WIDTH;
-  const maxByHeight = areaHeight * HI_SLACK_FROM_HEIGHT;
-  let hi = Math.min(MAX_PX, maxByWidth, maxByHeight);
-  hi = Math.max(hi, MIN_PX + 1);
+  let hi = maxByWidth;
 
   for (let i = 0; i < FIT_ITERATIONS; i++) {
     const mid = (lo + hi) / 2;

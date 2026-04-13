@@ -13,7 +13,8 @@ import {
   CARD_THEME_LABELS,
 } from '../types/testimonial';
 import {
-  MANUAL_FONT_SCALE_SEQUENCE,
+  MAX_FONT_SCALE,
+  MIN_FONT_SCALE,
   stepQuoteFontScale,
 } from '../lib/quoteCardAppearanceOptions';
 import { styleConfig } from '../lib/styleConfig';
@@ -102,7 +103,6 @@ export function GridQuote({
   appearanceControl,
   cardPaddingPx = DEFAULT_CARD_PADDING_PX,
 }: GridQuoteProps) {
-  type ManualScale = (typeof MANUAL_FONT_SCALE_SEQUENCE)[number];
   const displayedMetadata = getDisplayedMetadataEntries(testimonial, metadataToggles, metadataOrder);
   const tokens = getCardThemeTokens(cardTheme);
 
@@ -176,9 +176,6 @@ export function GridQuote({
     ...(gridRow && { gridRow }),
     ...(gridColumn && { gridColumn }),
     ...(onSelect && { cursor: 'pointer' }),
-    // Keep default cards content-sized so row tracks can collapse after text shrinks.
-    // Spanning cards still fill their allocated tracks to respect manual grid sizing.
-    alignSelf: rowSpan > 1 ? 'stretch' : 'start',
     ['--grid-quote-scale' as string]: manualScale,
     ['--grid-quote-line-height' as string]: lineHeightCss,
   };
@@ -203,42 +200,11 @@ export function GridQuote({
       : {}),
   };
 
-  const getMaxAllowedScaleTier = (): ManualScale | null => {
-    const textEl = textRef.current;
-    if (!textEl || autoFontPx == null || !Number.isFinite(autoFontPx) || autoFontPx <= 0) {
-      return null;
-    }
-
-    const currentPx = parseFloat(window.getComputedStyle(textEl).fontSize);
-    if (!Number.isFinite(currentPx) || currentPx <= 0 || manualScale <= 0) {
-      return null;
-    }
-
-    const basePx = currentPx / manualScale;
-    if (!Number.isFinite(basePx) || basePx <= 0) {
-      return null;
-    }
-
-    const rawMaxScale = autoFontPx / basePx;
-    const minScale = MANUAL_FONT_SCALE_SEQUENCE[0];
-    const maxScale = Math.max(minScale, rawMaxScale);
-    const tier = [...MANUAL_FONT_SCALE_SEQUENCE]
-      .reverse()
-      .find((v) => v <= maxScale + 0.0001);
-    return tier ?? minScale;
-  };
-
   const stepScaleWithCap = (
     current: QuoteFontScaleOverride,
     direction: -1 | 1
   ): QuoteFontScaleOverride => {
-    const candidate = stepQuoteFontScale(current, direction);
-    if (direction < 0 || candidate === 'auto') return candidate;
-
-    const maxTier = getMaxAllowedScaleTier();
-    if (maxTier == null || candidate <= maxTier) return candidate;
-    if (current !== 'auto' && current > maxTier) return current;
-    return maxTier;
+    return stepQuoteFontScale(current, direction);
   };
 
   const startResizeDrag = (axis: GridResizeAxis) => (e: React.PointerEvent) => {
@@ -413,7 +379,10 @@ export function GridQuote({
               type="button"
               className="grid-quote__chrome-pill-btn grid-quote__chrome-pill-btn--plus"
               aria-label="Larger text"
-              disabled={nextUp === appearanceControl.fontScale}
+              disabled={
+                appearanceControl.fontScale !== 'auto' &&
+                appearanceControl.fontScale >= MAX_FONT_SCALE
+              }
               onClick={() => appearanceControl.onFontScaleChange(nextUp)}
             >
               +
@@ -422,7 +391,10 @@ export function GridQuote({
               type="button"
               className="grid-quote__chrome-pill-btn grid-quote__chrome-pill-btn--minus"
               aria-label="Smaller text"
-              disabled={nextDown === appearanceControl.fontScale}
+              disabled={
+                appearanceControl.fontScale !== 'auto' &&
+                appearanceControl.fontScale <= MIN_FONT_SCALE
+              }
               onClick={() => appearanceControl.onFontScaleChange(nextDown)}
             >
               −

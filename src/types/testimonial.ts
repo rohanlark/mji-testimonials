@@ -197,7 +197,7 @@ export function formatGridSizeOverrideLabel(size: GridSizeOverride): string {
 export type GridSizeOverrideMap = Record<string, GridSizeOverride>;
 
 /** Per-quote font scale override for grid cells. Auto = scale from cell size. */
-export type QuoteFontScaleOverride = 'auto' | 0.8 | 0.9 | 1 | 1.1 | 1.2 | 1.4;
+export type QuoteFontScaleOverride = 'auto' | number;
 
 /** Overall grid container aspect ratio. `fit` = height follows content (no fixed frame). Flipped swaps width/height (e.g. 16:9 → 9:16). */
 export type GridAspectRatio = 'fit' | '1:1' | '4:5' | '16:9' | 'a4';

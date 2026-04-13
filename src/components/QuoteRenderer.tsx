@@ -274,9 +274,11 @@ export function TestimonialPreview({
       gridColumn: '1 / -1',
       gridRow: '1 / -1',
       pointerEvents: 'none',
-      zIndex: 0,
+      zIndex: 8,
       minWidth: 0,
       minHeight: 0,
+      ['--grid-track-gap' as string]: `${layoutGapPx}px`,
+      ['--grid-track-line-color' as string]: 'rgba(0, 0, 0, 0.18)',
     };
 
     const gridContainerStyle: CSSProperties = {
@@ -317,13 +319,13 @@ export function TestimonialPreview({
               return (
                 <div
                   key={i}
-                  className="testimonial-grid__track-cell"
-                  style={{
-                    borderRight:
-                      col < cols - 1 ? '1px solid rgba(0, 0, 0, 0.14)' : undefined,
-                    borderBottom:
-                      row < rowCount - 1 ? '1px solid rgba(0, 0, 0, 0.14)' : undefined,
-                  }}
+                  className={[
+                    'testimonial-grid__track-cell',
+                    col < cols - 1 ? 'testimonial-grid__track-cell--v' : '',
+                    row < rowCount - 1 ? 'testimonial-grid__track-cell--h' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
                 />
               );
             })}
