@@ -13,14 +13,14 @@ import {
   QuoteFontScaleOverride,
   CardSurfaceOverride,
   GlobalCardThemeId,
+  MobileFallbackMode,
 } from '../types/testimonial';
 import { getCardThemeTokens, resolveCardThemeId } from './cardThemes';
 import { calculateGridLayout, calculateGridRows } from './gridLayout';
-import { formatOccupationForDisplay, getDisplayedMetadataEntries } from './metadataNormalize';
+import { getDisplayedMetadataEntries } from './metadataNormalize';
 import { normalizeQuoteForLayout } from './quoteNormalize';
 import { styleConfig } from './styleConfig';
 import { lineHeightForQuoteScale } from './gridQuoteFontScale';
-import { AUTO_FIT_LINE_HEIGHT } from './fitGridQuoteFont';
 import {
   DEFAULT_CARD_PADDING_PX,
   DEFAULT_LAYOUT_GAP_PX,
@@ -108,15 +108,19 @@ export function generateEmbedCode(
   gridDimensions: GridDimensions = { columns: 4, rows: 4 },
   gridSizeOverrides: Record<string, GridSizeOverride> = {},
   fontScaleOverrides: Record<string, QuoteFontScaleOverride> = {},
+  globalQuoteFontScale = 1,
   globalCardTheme: GlobalCardThemeId = 'light',
   cardSurfaceOverrides: Record<string, CardSurfaceOverride> = {},
+  metadataToggles: MetadataToggles = DEFAULT_METADATA_TOGGLES,
+  metadataOrder: MetadataFieldKey[] = DEFAULT_METADATA_ORDER,
   quoteHyphenation = false,
   layoutGapPx = DEFAULT_LAYOUT_GAP_PX,
   layoutMarginPx = DEFAULT_LAYOUT_MARGIN_PX,
-  cardPaddingPx = DEFAULT_CARD_PADDING_PX
+  cardPaddingPx = DEFAULT_CARD_PADDING_PX,
+  mobileFallbackMode: MobileFallbackMode = 'swipe',
+  swipeCardWidthPct = 78,
+  outputMode: 'fragment' | 'document' = 'fragment'
 ): string {
-  // Intentional fallback: responsive mobile swipe behavior in app preview is exported as
-  // static grid/stack markup so embeds stay deterministic across host contexts.
   const hyphenCss = quoteHyphenation ? 'auto' : 'none';
   const gridMetadataBase = cssObjectToString({
     fontFamily: styleConfig.grid.metadata.fontFamily,
@@ -126,20 +130,24 @@ export function generateEmbedCode(
     lineHeight: styleConfig.grid.metadata.lineHeight,
   });
 
-  let html = '<!DOCTYPE html>\n<html lang="en-AU">\n<head>\n';
-  html += '<meta charset="UTF-8">\n';
-  html += '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n';
-  html += '<title>MJI Testimonials</title>\n';
+  let html = '';
+  if (outputMode === 'document') {
+    html += '<!DOCTYPE html>\n<html lang="en-AU">\n<head>\n';
+    html += '<meta charset="UTF-8">\n';
+    html += '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n';
+    html += '<title>MJI Testimonials</title>\n';
+  }
   html +=
     '<link rel="preconnect" href="https://fonts.googleapis.com">\n' +
     '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n' +
     '<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500&family=Lora:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet">\n';
   html += '<style>\n';
-  html += '  * { margin: 0; padding: 0; box-sizing: border-box; }\n';
   html +=
-    '  body { font-family: ' +
+    '  .mji-testimonials-embed, .mji-testimonials-embed * { box-sizing: border-box; }\n';
+  html +=
+    '  .mji-testimonials-embed { font-family: ' +
     styleConfig.typography.fontFamily +
-    '; padding: 0; margin: 0; background: transparent; }\n';
+    '; margin: 0; padding: 0; background: transparent; width: 100%; max-width: 100%; height: auto; overflow: visible; display: block; }\n';
 
   const stackLike =
     layoutMode === 'stack' ||
@@ -148,40 +156,42 @@ export function generateEmbedCode(
 
   if (stackLike) {
     html +=
-      '  .testimonial-stack-embed { display: flex; flex-direction: column; gap: ' +
+      '  .mji-testimonials-embed .mji-stack-embed { display: flex; flex-direction: column; gap: ' +
       layoutGapPx +
       'px; width: 100%; box-sizing: border-box; padding: ' +
       layoutMarginPx +
       'px; }\n';
     html +=
-      '  .testimonial-card { border-radius: 8px; padding: ' +
+      '  .mji-testimonials-embed .mji-card { border-radius: 8px; padding: ' +
       cardPaddingPx +
       'px; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; }\n';
     html +=
-      '  .stack-quote { font-family: "Lora", Georgia, "Times New Roman", serif; font-style: italic; line-height: 1.5; font-size: 24px; padding: 0; margin-bottom: 16px; text-decoration: none; overflow-wrap: anywhere; hyphens: ' +
+      '  .mji-testimonials-embed .mji-stack-quote { font-family: "Lora", Georgia, "Times New Roman", serif; font-style: italic; line-height: 1.5; font-size: 24px; padding: 0; margin-bottom: 16px; text-decoration: none; overflow-wrap: anywhere; hyphens: ' +
       hyphenCss +
       '; -webkit-hyphens: ' +
       hyphenCss +
       '; }\n';
     html +=
-      '  .stack-metadata { font-family: "Inter Tight", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; margin-top: 16px; padding-top: 16px; padding-left: 0; line-height: 1.4; }\n';
+      '  .mji-testimonials-embed .mji-stack-metadata { font-family: "Inter Tight", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; margin-top: 16px; padding-top: 16px; padding-left: 0; line-height: 1.4; }\n';
   } else {
     html +=
-      '  .grid-embed-shell { box-sizing: border-box; width: 100%; padding: ' +
+      '  .mji-testimonials-embed .mji-grid-shell { box-sizing: border-box; width: 100%; padding: ' +
       layoutMarginPx +
       'px; }\n';
     html +=
-      '  .grid-container { display: grid; gap: ' +
+      '  .mji-testimonials-embed .mji-grid-scroll-rail { width: 100%; overflow: visible; }\n';
+    html +=
+      '  .mji-testimonials-embed .mji-grid-container { display: grid; gap: ' +
       layoutGapPx +
       'px; width: 100%; align-content: start; }\n';
     html +=
-      '  .grid-cell { border-radius: 8px; padding: ' +
+      '  .mji-testimonials-embed .mji-grid-cell { border-radius: 8px; padding: ' +
       cardPaddingPx +
-      'px; display: flex; flex-direction: column; justify-content: space-between; container-type: size; overflow: visible; box-sizing: border-box; }\n';
+      'px; display: flex; flex-direction: column; justify-content: space-between; container-type: inline-size; overflow: visible; box-sizing: border-box; }\n';
     html +=
-      '  .grid-quote__inner { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }\n';
+      '  .mji-testimonials-embed .mji-grid-quote-inner { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }\n';
     html +=
-      '  .grid-quote__text { flex: 1 1 auto; min-height: 0; margin-bottom: ' +
+      '  .mji-testimonials-embed .mji-grid-quote-text { flex: 1 1 auto; min-height: 0; margin-bottom: ' +
       (styleConfig.grid.quote.marginBottom ?? '0') +
       '; font-family: ' +
       (styleConfig.grid.quote.fontFamily ?? '"Lora", Georgia, serif') +
@@ -195,29 +205,53 @@ export function generateEmbedCode(
     html +=
       'font-size: calc(clamp(12px, 0.8rem + 2.25cqi, 1.28rem) * var(--grid-quote-scale, 1)); }\n';
     html +=
-      '  .grid-cell[data-auto-quote="1"] .grid-quote__text { font-size: clamp(12px, min(5.5cqh, 2.75cqi + 0.5rem), 7rem) !important; }\n';
+      '  .mji-testimonials-embed .mji-grid-quote-text * { text-decoration: none; border-bottom: none; }\n';
     html +=
-      '  .grid-quote__text * { text-decoration: none; border-bottom: none; }\n';
+      '  @supports not (font-size: 1cqi) { .mji-testimonials-embed .mji-grid-quote-text { font-size: calc(clamp(12px, 0.88rem + 1.1vw, 1.28rem) * var(--grid-quote-scale, 1)); } }\n';
+    html += '  .mji-testimonials-embed .mji-grid-metadata { ' + gridMetadataBase + ' }\n';
     html +=
-      '  @supports not (font-size: 1cqi) { .grid-quote__text { font-size: calc(clamp(12px, 0.88rem + 1.1vw, 1.28rem) * var(--grid-quote-scale, 1)); } }\n';
-    html += '  .grid-metadata { ' + gridMetadataBase + ' }\n';
+      '  .mji-testimonials-embed .mji-grid-shell.mobile-mode-swipe { --embed-swipe-width: ' +
+      Math.max(75, Math.min(85, Math.round(swipeCardWidthPct))) +
+      'vw; }\n';
+    html +=
+      '  @media (max-width: 1199px) { .mji-testimonials-embed .mji-grid-container { gap: max(8px, calc(' +
+      layoutGapPx +
+      'px * 0.9)); } .mji-testimonials-embed .mji-grid-cell { padding: max(8px, calc(' +
+      cardPaddingPx +
+      'px * 0.92)); } }\n';
+    html +=
+      '  @media (max-width: 899px) { .mji-testimonials-embed .mji-grid-container { gap: max(8px, calc(' +
+      layoutGapPx +
+      'px * 0.78)); } .mji-testimonials-embed .mji-grid-cell { padding: max(8px, calc(' +
+      cardPaddingPx +
+      'px * 0.86)); } }\n';
+    html +=
+      '  @media (max-width: 639px) { .mji-testimonials-embed .mji-grid-container { gap: max(8px, calc(' +
+      layoutGapPx +
+      'px * 0.62)); } .mji-testimonials-embed .mji-grid-cell { padding: max(8px, calc(' +
+      cardPaddingPx +
+      'px * 0.74)); } }\n';
+    html +=
+      '  @media (max-width: 639px) { .mji-testimonials-embed .mji-grid-shell.mobile-mode-stack .mji-grid-container { display: flex !important; flex-direction: column; } }\n';
+    html +=
+      '  @media (max-width: 639px) { .mji-testimonials-embed .mji-grid-shell.mobile-mode-swipe .mji-grid-scroll-rail { overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding: 0 6vw 2px; box-sizing: border-box; } .mji-testimonials-embed .mji-grid-shell.mobile-mode-swipe .mji-grid-scroll-rail::-webkit-scrollbar { display: none; } .mji-testimonials-embed .mji-grid-shell.mobile-mode-swipe .mji-grid-container { display: flex !important; flex-direction: row; width: max-content; min-width: 100%; scroll-snap-type: x mandatory; scroll-padding-inline: 6vw; } .mji-testimonials-embed .mji-grid-shell.mobile-mode-swipe .mji-grid-cell { flex: 0 0 var(--embed-swipe-width, 78vw); min-width: 240px; max-width: 480px; scroll-snap-align: start; scroll-snap-stop: always; } }\n';
   }
 
   html += '</style>\n';
-  html += '</head>\n<body>\n';
+  if (outputMode === 'document') {
+    html += '</head>\n<body>\n';
+  }
+  html += '<div class="mji-testimonials-embed">\n';
 
   if (stackLike) {
-    html += '<div class="testimonial-stack-embed">\n';
+    html += '<div class="mji-stack-embed">\n';
     testimonials.forEach((testimonial) => {
-      const metadata = [
-        testimonial.year,
-        testimonial.country,
-        testimonial.age,
-        testimonial.state,
-        testimonial.visa,
-        formatOccupationForDisplay(testimonial.occupation),
-      ]
-        .filter(Boolean)
+      const metadata = getDisplayedMetadataEntries(
+        testimonial,
+        metadataToggles,
+        metadataOrder
+      )
+        .map((m) => m.value)
         .join(' • ');
 
       const theme = resolveCardThemeId(globalCardTheme, cardSurfaceOverrides[testimonial.id]);
@@ -230,15 +264,15 @@ export function generateEmbedCode(
       const quoteStyle = `color: ${tok.quoteColor}; font-weight: ${tok.quoteFontWeight};`;
       const metaStyle = `color: ${tok.metadataColor}; font-weight: ${tok.metadataFontWeight}; border-top: 1px solid ${tok.metadataDividerColor};`;
 
-      html += `<div class="testimonial-card" style="${cardChrome}">\n`;
+      html += `<div class="mji-card" style="${cardChrome}">\n`;
       html +=
-        '  <div class="stack-quote" style="' +
+        '  <div class="mji-stack-quote" style="' +
         quoteStyle +
         '" lang="en-AU">' +
         escapeHtml(normalizeQuoteForLayout(testimonial.quote)) +
         '</div>\n';
       html +=
-        '  <div class="stack-metadata" style="' +
+        '  <div class="mji-stack-metadata" style="' +
         metaStyle +
         '">' +
         escapeHtml(metadata) +
@@ -255,29 +289,27 @@ export function generateEmbedCode(
     );
     const rowCount = placements.length === 0 ? 1 : calculateGridRows(placements);
     const cols = gridDimensions.columns;
-    html += '<div class="grid-embed-shell">\n';
+    html += `<div class="mji-grid-shell mobile-mode-${mobileFallbackMode}">\n`;
+    html += '<div class="mji-grid-scroll-rail">\n';
     html +=
-      '<div class="grid-container" style="grid-template-columns: repeat(' +
+      '<div class="mji-grid-container" style="grid-template-columns: repeat(' +
       cols +
       ', 1fr); grid-template-rows: repeat(' +
       rowCount +
       ', minmax(6rem, auto));">\n';
 
     placements.forEach((placement) => {
-      const metadata = [
-        placement.testimonial.year,
-        placement.testimonial.country,
-        placement.testimonial.age,
-        placement.testimonial.state,
-        placement.testimonial.visa,
-        formatOccupationForDisplay(placement.testimonial.occupation),
-      ]
-        .filter(Boolean)
+      const metadata = getDisplayedMetadataEntries(
+        placement.testimonial,
+        metadataToggles,
+        metadataOrder
+      )
+        .map((m) => m.value)
         .join(' • ');
       const fontOverride = fontScaleOverrides[placement.testimonial.id] ?? 'auto';
-      const isAutoFont = fontOverride === 'auto';
-      const scale = isAutoFont ? 1 : fontOverride;
-      const lh = isAutoFont ? AUTO_FIT_LINE_HEIGHT : lineHeightForQuoteScale(fontOverride);
+      const scale =
+        fontOverride === 'auto' ? globalQuoteFontScale : (fontOverride ?? globalQuoteFontScale);
+      const lh = lineHeightForQuoteScale(scale);
       const quoteText = escapeHtml(normalizeQuoteForLayout(placement.testimonial.quote));
       const theme = resolveCardThemeId(
         globalCardTheme,
@@ -288,8 +320,7 @@ export function generateEmbedCode(
       const quoteInline = `color: ${tok.quoteColor}; font-weight: ${tok.quoteFontWeight};`;
       const metaInline = `color: ${tok.metadataColor}; font-weight: ${tok.metadataFontWeight};`;
       html +=
-        '  <div class="grid-cell"' +
-        (isAutoFont ? ' data-auto-quote="1"' : '') +
+        '  <div class="mji-grid-cell"' +
         ' style="grid-row: ' +
         placement.gridRow +
         '; grid-column: ' +
@@ -301,16 +332,16 @@ export function generateEmbedCode(
         '; ' +
         cellChrome +
         '">\n';
-      html += '    <div class="grid-quote__inner">\n';
+      html += '    <div class="mji-grid-quote-inner">\n';
       html +=
-        '      <div class="grid-quote__text" lang="en-AU" style="' +
+        '      <div class="mji-grid-quote-text" lang="en-AU" style="' +
         quoteInline +
         '">' +
         quoteText +
         '</div>\n';
       html += '    </div>\n';
       html +=
-        '    <div class="grid-metadata" style="' +
+        '    <div class="mji-grid-metadata" style="' +
         metaInline +
         '">' +
         escapeHtml(metadata) +
@@ -318,10 +349,13 @@ export function generateEmbedCode(
       html += '  </div>\n';
     });
 
-    html += '</div>\n</div>\n';
+    html += '</div>\n</div>\n</div>\n';
   }
 
-  html += '</body>\n</html>';
+  html += '</div>\n';
+  if (outputMode === 'document') {
+    html += '</body>\n</html>';
+  }
 
   return html;
 }
@@ -407,32 +441,6 @@ function wordWrapWithFont(
   return lines;
 }
 
-/** Max font-size (px) for which wrapped quote lines fit in `quoteAreaHeightPx` (outline SVG grid). */
-function autoQuoteFontSizeForGridExport(
-  quoteRaw: string,
-  font: OpentypeFont,
-  textWidthPx: number,
-  quoteAreaHeightPx: number,
-  lineHeightEm: number
-): number {
-  const text = normalizeQuoteForLayout(quoteRaw);
-  const MIN_PX = 12;
-  const MAX_PX = 200;
-  let lo = MIN_PX;
-  let hi = Math.min(MAX_PX, Math.max(quoteAreaHeightPx * 1.5, MIN_PX + 1));
-  for (let i = 0; i < 24; i++) {
-    const mid = (lo + hi) / 2;
-    const lines = wordWrapWithFont(text, font, mid, textWidthPx, 1000);
-    const needed = lines.length * mid * lineHeightEm;
-    if (needed <= quoteAreaHeightPx + 0.5) {
-      lo = mid;
-    } else {
-      hi = mid;
-    }
-  }
-  return lo;
-}
-
 /**
  * Renders wrapped lines as SVG <path> elements (outlined text).
  * opentype.js 1.x Glyph.getPath already outputs y-down (y + (-cmd.y * yScale)), so no flip needed.
@@ -492,6 +500,7 @@ export async function generateSVG(
   metadataOrder?: MetadataFieldKey[],
   gridDimensions?: GridDimensions,
   fontScaleOverrides?: Record<string, QuoteFontScaleOverride>,
+  globalQuoteFontScale = 1,
   globalCardTheme: GlobalCardThemeId = 'light',
   cardSurfaceOverrides: Record<string, CardSurfaceOverride> = {},
   layoutSpacing?: SvgExportLayoutSpacing
@@ -599,11 +608,7 @@ ${parts.join('')}
   const gridTextPadding = cardPadPx;
   const gridQuoteTop = cardPadPx + 12;
   const gridMetaBottom = cardPadPx;
-  const gridQuoteToMetaGap = 24;
   const gridMetaMaxLines = 4;
-  const gridMetaLinesReserved = 2;
-  const metadataBlockHeight =
-    gridQuoteToMetaGap + gridMetaLinesReserved * gridMetaFontSize * gridLineHeightMeta;
 
   const gridParts: string[] = [];
   placements.forEach((p) => {
@@ -621,22 +626,10 @@ ${parts.join('')}
     const cardStroke = strokeColorFromCssBorder(tok.border);
     const textWidth = w - gridTextPadding * 2;
     const fontOverride = fontScaleOverrides?.[t.id] ?? 'auto';
-    const quoteAreaHeight = h - gridQuoteTop - metadataBlockHeight - gridMetaBottom;
-    let quoteFontSize: number;
-    let quoteLineHeightEm: number;
-    if (fontOverride === 'auto') {
-      quoteLineHeightEm = AUTO_FIT_LINE_HEIGHT;
-      quoteFontSize = autoQuoteFontSizeForGridExport(
-        t.quote,
-        quoteFont,
-        textWidth,
-        quoteAreaHeight,
-        quoteLineHeightEm
-      );
-    } else {
-      quoteLineHeightEm = lineHeightForQuoteScale(fontOverride);
-      quoteFontSize = gridQuoteFontSizeBase * fontOverride;
-    }
+    const resolvedScale =
+      fontOverride === 'auto' ? globalQuoteFontScale : (fontOverride ?? globalQuoteFontScale);
+    const quoteLineHeightEm = lineHeightForQuoteScale(resolvedScale);
+    const quoteFontSize = gridQuoteFontSizeBase * resolvedScale;
     const quoteLines = wordWrapWithFont(
       normalizeQuoteForLayout(t.quote),
       quoteFont,

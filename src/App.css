@@ -1699,6 +1699,70 @@
   color: #0056b3;
 }
 
+.empty-state-open-setup {
+  display: inline-block;
+  margin-top: 0.25rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid #ccc;
+  background: #fff;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  color: #333;
+}
+
+.empty-state-open-setup:hover {
+  background: #f5f5f5;
+}
+
+.save-setup-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.8125rem;
+  color: #555;
+  font-weight: 600;
+}
+
+.open-setup-list {
+  margin-top: 0.75rem;
+  max-height: 20rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.open-setup-item {
+  width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.open-setup-item:hover {
+  background: #f8fbff;
+  border-color: #b9d9f7;
+}
+
+.open-setup-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #222;
+}
+
+.open-setup-meta {
+  font-size: 0.75rem;
+  color: #666;
+}
+
 .app-import-file-input {
   position: absolute;
   width: 1px;

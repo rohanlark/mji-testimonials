@@ -12,39 +12,34 @@ export interface GridPlacement {
 }
 
 /**
- * Character-based sizing: width variety (1-4 columns), height capped at 2 rows.
- * - <100 chars: 1x1
- * - 100-200: 2x1 or 1x2
- * - 200-350: 3x1 or 2x2
- * - 350-500: 3x2 or 4x1
- * - 500+: 4x2
- * CRITICAL: rowSpan never exceeds 2; colSpan up to 4.
+ * Character-based sizing candidates (ordered by visual preference first).
+ * We keep multiple valid footprints so the packer can pick the one that
+ * best reduces holes for the current partial layout.
  */
-function calculateCellSize(quote: string): { rowSpan: number; colSpan: number } {
+function calculateCellSizeCandidates(quote: string): Array<{ rowSpan: number; colSpan: number }> {
   const charCount = normalizeQuoteForLayout(quote).length;
-  let rowSpan: number;
-  let colSpan: number;
-
   if (charCount < 100) {
-    rowSpan = 1;
-    colSpan = 1;
-  } else if (charCount < 200) {
-    rowSpan = 1;
-    colSpan = 2; // 1x2 or 2x1 → prefer wider (1x2)
-  } else if (charCount < 350) {
-    rowSpan = 2;
-    colSpan = 2; // 3x1 or 2x2 → use 2x2
-  } else if (charCount < 500) {
-    rowSpan = 2;
-    colSpan = 3; // 3x2 or 4x1 → use 3x2
-  } else {
-    rowSpan = 2;
-    colSpan = 4; // 4x2
+    return [{ rowSpan: 1, colSpan: 1 }];
   }
-
-  rowSpan = Math.min(rowSpan, 2);
-  colSpan = Math.min(colSpan, 4);
-  return { rowSpan, colSpan };
+  if (charCount < 200) {
+    return [
+      { rowSpan: 1, colSpan: 2 },
+      { rowSpan: 2, colSpan: 1 },
+    ];
+  }
+  if (charCount < 350) {
+    return [
+      { rowSpan: 2, colSpan: 2 },
+      { rowSpan: 1, colSpan: 3 },
+    ];
+  }
+  if (charCount < 500) {
+    return [
+      { rowSpan: 2, colSpan: 3 },
+      { rowSpan: 1, colSpan: 4 },
+    ];
+  }
+  return [{ rowSpan: 2, colSpan: 4 }];
 }
 
 /** Parse override string "2x1" -> { colSpan: 2, rowSpan: 1 }. Columns and rows 1–4. */
@@ -77,11 +72,8 @@ function canPlace(
   }
 
   for (let r = row; r < row + rowSpan; r++) {
-    while (grid.length <= r) {
-      grid.push(new Array(maxCols).fill(null));
-    }
     for (let c = col; c < col + colSpan; c++) {
-      if (grid[r][c] !== null) {
+      if (grid[r]?.[c] != null) {
         return false;
       }
     }
@@ -114,11 +106,30 @@ function placeCell(
   }
 }
 
+function countProjectedVacancy(
+  grid: (number | null)[][],
+  maxCols: number,
+  row: number,
+  col: number,
+  rowSpan: number,
+  colSpan: number
+): { vacant: number; projectedRows: number } {
+  const projectedRows = Math.max(grid.length, row + rowSpan);
+  let vacant = 0;
+  for (let r = 0; r < projectedRows; r++) {
+    for (let c = 0; c < maxCols; c++) {
+      const filledByCandidate =
+        r >= row && r < row + rowSpan && c >= col && c < col + colSpan;
+      const filledByGrid = grid[r]?.[c] != null;
+      if (!filledByCandidate && !filledByGrid) vacant++;
+    }
+  }
+  return { vacant, projectedRows };
+}
+
 /**
- * Finds the first available position (row-major first-fit).
- * Scans through all rows that already exist in `grid` plus one new row at `grid.length` when
- * needed, so items pack next to earlier placements instead of only searching the first
- * `maxRows` rows (which missed tail rows created by overflow/fallback).
+ * Finds a placement that minimizes holes and total row growth.
+ * This keeps deterministic ordering but avoids many first-fit artefacts.
  */
 function findPlacement(
   grid: (number | null)[][],
@@ -128,21 +139,38 @@ function findPlacement(
   maxRows: number
 ): { row: number; col: number } | null {
   const rowMax = Math.max(maxRows - rowSpan, grid.length);
+  let best: { row: number; col: number; vacant: number; projectedRows: number } | null =
+    null;
+
   for (let row = 0; row <= rowMax; row++) {
     for (let col = 0; col <= maxCols - colSpan; col++) {
       if (canPlace(grid, row, col, rowSpan, colSpan, maxCols)) {
-        return { row, col };
+        const score = countProjectedVacancy(grid, maxCols, row, col, rowSpan, colSpan);
+        if (
+          !best ||
+          score.vacant < best.vacant ||
+          (score.vacant === best.vacant && score.projectedRows < best.projectedRows) ||
+          (score.vacant === best.vacant &&
+            score.projectedRows === best.projectedRows &&
+            row < best.row) ||
+          (score.vacant === best.vacant &&
+            score.projectedRows === best.projectedRows &&
+            row === best.row &&
+            col < best.col)
+        ) {
+          best = { row, col, vacant: score.vacant, projectedRows: score.projectedRows };
+        }
       }
     }
   }
-  return null;
+  return best ? { row: best.row, col: best.col } : null;
 }
 
 /**
  * Calculates grid layout in **packing order** (testimonials array order): each item is placed
- * first-fit (row-major scan). Visual reading order may differ from array order — UI should
+ * with a deterministic hole-minimising search. Visual reading order may differ from array order — UI should
  * list quotes with `sortPlacementsReadingOrder` so the sidebar matches left→right, top→bottom.
- * Some hole patterns can still appear with awkward sizes/order; reordering or resizing usually helps.
+ * Some hole patterns can still appear for non-tessellating rectangle sets.
  */
 export function calculateGridLayout(
   testimonials: Testimonial[],
@@ -163,32 +191,77 @@ export function calculateGridLayout(
     const testimonial = testimonials[index];
     const override = overrides?.[testimonial.id];
     const parsed = override ? parseSizeOverride(override) : null;
-    const rawSize = parsed ?? calculateCellSize(testimonial.quote);
-    const rowSpan = Math.min(rawSize.rowSpan, maxRows);
-    const colSpan = Math.min(rawSize.colSpan, maxCols);
+    const sizeCandidates = parsed
+      ? [parsed]
+      : calculateCellSizeCandidates(testimonial.quote);
 
-    const position = findPlacement(grid, rowSpan, colSpan, maxCols, maxRows);
+    let best: {
+      row: number;
+      col: number;
+      rowSpan: number;
+      colSpan: number;
+      vacant: number;
+      projectedRows: number;
+      area: number;
+    } | null = null;
 
-    if (position) {
-      placeCell(grid, position.row, position.col, rowSpan, colSpan, index, maxCols);
+    for (const candidate of sizeCandidates) {
+      const rowSpan = Math.min(candidate.rowSpan, maxRows);
+      const colSpan = Math.min(candidate.colSpan, maxCols);
+      const position = findPlacement(grid, rowSpan, colSpan, maxCols, maxRows);
+      if (!position) continue;
+      const score = countProjectedVacancy(
+        grid,
+        maxCols,
+        position.row,
+        position.col,
+        rowSpan,
+        colSpan
+      );
+      const area = rowSpan * colSpan;
+      if (
+        !best ||
+        score.vacant < best.vacant ||
+        (score.vacant === best.vacant && score.projectedRows < best.projectedRows) ||
+        (score.vacant === best.vacant &&
+          score.projectedRows === best.projectedRows &&
+          area > best.area)
+      ) {
+        best = {
+          row: position.row,
+          col: position.col,
+          rowSpan,
+          colSpan,
+          vacant: score.vacant,
+          projectedRows: score.projectedRows,
+          area,
+        };
+      }
+    }
 
-      const gridRow = rowSpan > 1
-        ? `${position.row + 1} / span ${rowSpan}`
-        : `${position.row + 1}`;
-      const gridColumn = colSpan > 1
-        ? `${position.col + 1} / span ${colSpan}`
-        : `${position.col + 1}`;
+    if (best) {
+      placeCell(grid, best.row, best.col, best.rowSpan, best.colSpan, index, maxCols);
+
+      const gridRow = best.rowSpan > 1
+        ? `${best.row + 1} / span ${best.rowSpan}`
+        : `${best.row + 1}`;
+      const gridColumn = best.colSpan > 1
+        ? `${best.col + 1} / span ${best.colSpan}`
+        : `${best.col + 1}`;
 
       placements.push({
         testimonial,
-        row: position.row,
-        col: position.col,
-        rowSpan,
-        colSpan,
+        row: best.row,
+        col: best.col,
+        rowSpan: best.rowSpan,
+        colSpan: best.colSpan,
         gridRow,
         gridColumn,
       });
     } else {
+      const fallbackSize = sizeCandidates[0] ?? { rowSpan: 1, colSpan: 1 };
+      const rowSpan = Math.min(fallbackSize.rowSpan, maxRows);
+      const colSpan = Math.min(fallbackSize.colSpan, maxCols);
       const fallbackRow = grid.length;
       placeCell(grid, fallbackRow, 0, rowSpan, colSpan, index, maxCols);
 

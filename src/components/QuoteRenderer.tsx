@@ -39,6 +39,7 @@ import {
   DEFAULT_LAYOUT_GAP_PX,
   DEFAULT_LAYOUT_MARGIN_PX,
 } from '../lib/layoutSpacing';
+import { DEFAULT_GLOBAL_QUOTE_FONT_SCALE } from '../lib/quoteCardAppearanceOptions';
 import { getResponsiveLayoutPolicy } from '../lib/responsiveLayoutPolicy';
 
 export function DefaultRevealDeckContent() {
@@ -58,6 +59,7 @@ export interface TestimonialPreviewProps {
   gridDimensions?: GridDimensions;
   gridSizeOverrides: Record<string, GridSizeOverride>;
   fontScaleOverrides?: Record<string, QuoteFontScaleOverride>;
+  globalQuoteFontScale?: number;
   selectedQuoteId?: string | null;
   onSelectQuote?: (id: string | null) => void;
   onUpdateTestimonial?: (id: string, partial: Partial<Testimonial>) => void;
@@ -102,6 +104,7 @@ export function TestimonialPreview({
   gridDimensions = { columns: 3, rows: 3 },
   gridSizeOverrides,
   fontScaleOverrides = {},
+  globalQuoteFontScale = DEFAULT_GLOBAL_QUOTE_FONT_SCALE,
   selectedQuoteId,
   onSelectQuote,
   onUpdateTestimonial,
@@ -211,7 +214,7 @@ export function TestimonialPreview({
     (testimonialId: string): GridQuoteAppearanceControl | undefined => {
       if (!onFontScaleChange || !onCardSurfaceChange) return undefined;
       return {
-        fontScale: fontScaleOverrides[testimonialId] ?? 'auto',
+        fontScale: fontScaleOverrides[testimonialId] ?? globalQuoteFontScale,
         onFontScaleChange: (scale) => onFontScaleChange(testimonialId, scale),
         cardSurface: cardSurfaceOverrides[testimonialId] ?? 'inherit',
         onCardSurfaceChange: (surface) =>
@@ -220,6 +223,7 @@ export function TestimonialPreview({
     },
     [
       fontScaleOverrides,
+      globalQuoteFontScale,
       cardSurfaceOverrides,
       onFontScaleChange,
       onCardSurfaceChange,
@@ -276,6 +280,7 @@ export function TestimonialPreview({
               onUpdateTestimonial={onUpdateTestimonial}
               onRequestEdit={onUpdateTestimonial ? onRequestEditQuote : undefined}
               fontScaleOverride={fontScaleOverrides[testimonial.id]}
+              globalQuoteFontScale={globalQuoteFontScale}
               cardTheme={resolveCardThemeId(globalCardTheme, cardSurfaceOverrides[testimonial.id])}
               quoteHyphenation={quoteHyphenation}
               cardPaddingPx={effectiveCardPaddingPx}
@@ -334,6 +339,7 @@ export function TestimonialPreview({
                 onUpdateTestimonial={onUpdateTestimonial}
                 onRequestEdit={onUpdateTestimonial ? onRequestEditQuote : undefined}
                 fontScaleOverride={fontScaleOverrides[testimonial.id]}
+                globalQuoteFontScale={globalQuoteFontScale}
                 cardTheme={resolveCardThemeId(globalCardTheme, cardSurfaceOverrides[testimonial.id])}
                 quoteHyphenation={quoteHyphenation}
                 cardPaddingPx={effectiveCardPaddingPx}
@@ -479,6 +485,7 @@ export function TestimonialPreview({
             onUpdateTestimonial={onUpdateTestimonial}
             onRequestEdit={onUpdateTestimonial ? onRequestEditQuote : undefined}
             fontScaleOverride={fontScaleOverrides[placement.testimonial.id]}
+            globalQuoteFontScale={globalQuoteFontScale}
             cardTheme={resolveCardThemeId(
               globalCardTheme,
               cardSurfaceOverrides[placement.testimonial.id]
@@ -535,6 +542,7 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
   const [layoutGapPx, setLayoutGapPx] = useState(DEFAULT_LAYOUT_GAP_PX);
   const [cardPaddingPx, setCardPaddingPx] = useState(DEFAULT_CARD_PADDING_PX);
+  const [globalQuoteFontScale, setGlobalQuoteFontScale] = useState(DEFAULT_GLOBAL_QUOTE_FONT_SCALE);
   const [mobileFallbackMode, setMobileFallbackMode] = useState<MobileFallbackMode>('swipe');
   const [swipeCardWidthPct, setSwipeCardWidthPct] = useState(78);
 
@@ -609,7 +617,7 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
       : 0;
   const gridVacancyWarning =
     vacantCells > 0
-      ? `${vacantCells} empty grid cell${vacantCells === 1 ? '' : 's'} (first-fit packing can’t always tessellate). Reorder quotes or change cell sizes to reduce gaps.`
+      ? `${vacantCells} empty grid cell${vacantCells === 1 ? '' : 's'} (some size mixes can’t fully tessellate). Reorder quotes or change cell sizes to reduce gaps.`
       : '';
 
   const handleExportSVG = async () => {
@@ -633,12 +641,18 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
         gridDimensions,
         gridSizeOverrides,
         fontScaleOverrides,
+        globalQuoteFontScale,
         globalCardTheme,
         cardSurfaceOverrides,
+        metadataToggles,
+        metadataOrder,
         quoteHyphenation,
         layoutGapPx,
         DEFAULT_LAYOUT_MARGIN_PX,
-        cardPaddingPx
+        cardPaddingPx,
+        mobileFallbackMode,
+        swipeCardWidthPct,
+        'fragment'
       );
       await copyToClipboard(embedCode);
       alert('Embed code copied to clipboard!');
@@ -654,12 +668,18 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
       gridDimensions,
       gridSizeOverrides,
       fontScaleOverrides,
+      globalQuoteFontScale,
       globalCardTheme,
       cardSurfaceOverrides,
+      metadataToggles,
+      metadataOrder,
       quoteHyphenation,
       layoutGapPx,
       DEFAULT_LAYOUT_MARGIN_PX,
-      cardPaddingPx
+      cardPaddingPx,
+      mobileFallbackMode,
+      swipeCardWidthPct,
+      'document'
     );
     downloadFile(embedCode, 'testimonials.html', 'text/html');
   };
@@ -692,6 +712,7 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
           gridDimensions={gridDimensions}
           gridSizeOverrides={gridSizeOverrides}
           fontScaleOverrides={fontScaleOverrides}
+          globalQuoteFontScale={globalQuoteFontScale}
           globalCardTheme={globalCardTheme}
           cardSurfaceOverrides={cardSurfaceOverrides}
           selectedQuoteId={selectedQuoteId}
@@ -753,6 +774,8 @@ export function QuoteRenderer({ testimonials, onReorderQuotes, onUpdateTestimoni
         setLayoutGapPx={setLayoutGapPx}
         cardPaddingPx={cardPaddingPx}
         setCardPaddingPx={setCardPaddingPx}
+        globalQuoteFontScale={globalQuoteFontScale}
+        setGlobalQuoteFontScale={setGlobalQuoteFontScale}
         mobileFallbackMode={mobileFallbackMode}
         setMobileFallbackMode={setMobileFallbackMode}
         swipeCardWidthPct={swipeCardWidthPct}

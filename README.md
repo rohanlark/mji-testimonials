@@ -125,6 +125,20 @@ The parser (`src/lib/parser.ts`) auto-detects format:
 - **SVG Export**: Uses `dom-to-svg` library to preserve text as `<text>` elements (not paths) for InDesign compatibility
 - **Embed Code**: Generates self-contained HTML with inline styles, no external dependencies
 
+### Squarespace Integration Contract
+
+Supported:
+- Insert via Squarespace Code Block
+- Placement contexts that do not force ancestor `overflow-x: hidden|clip`
+- Current embed snippet output (scoped `mji-*` classes)
+
+Behavior in hostile host wrappers:
+- The embed detects ancestor `overflow-x: hidden|clip`
+- Horizontal swipe content may be clipped by host wrappers outside the embed DOM
+
+Not supported:
+- Guaranteed horizontal swipe behavior inside arbitrary host wrappers that enforce clipping outside the embed DOM boundary
+
 ## Known Limitations
 
 - Grid layout uses fixed 4-column layout on desktop (responsive breakpoints not yet implemented)

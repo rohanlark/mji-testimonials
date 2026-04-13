@@ -21,6 +21,11 @@ import {
   LAYOUT_GAP_BOUNDS,
   stepLayoutPx,
 } from '../lib/layoutSpacing';
+import {
+  MAX_FONT_SCALE,
+  MIN_FONT_SCALE,
+  clampQuoteFontScale,
+} from '../lib/quoteCardAppearanceOptions';
 import { QuoteList } from './QuoteList';
 import { MetadataOrderList } from './MetadataOrderList';
 
@@ -63,6 +68,8 @@ export interface SidebarProps {
   setLayoutGapPx: (v: number) => void;
   cardPaddingPx: number;
   setCardPaddingPx: (v: number) => void;
+  globalQuoteFontScale: number;
+  setGlobalQuoteFontScale: (v: number) => void;
   mobileFallbackMode: MobileFallbackMode;
   setMobileFallbackMode: (mode: MobileFallbackMode) => void;
   swipeCardWidthPct: number;
@@ -106,6 +113,8 @@ export function Sidebar({
   setLayoutGapPx,
   cardPaddingPx,
   setCardPaddingPx,
+  globalQuoteFontScale,
+  setGlobalQuoteFontScale,
   mobileFallbackMode,
   setMobileFallbackMode,
   swipeCardWidthPct,
@@ -304,6 +313,30 @@ export function Sidebar({
               onClick={() =>
                 setCardPaddingPx(stepLayoutPx(cardPaddingPx, 1, CARD_PADDING_BOUNDS))
               }
+            >
+              +
+            </button>
+          </div>
+          <div className="layout-spacing-row">
+            <span className="layout-spacing-label">Card text size</span>
+            <button
+              type="button"
+              className="layout-spacing-btn"
+              aria-label="Decrease default card text size"
+              disabled={globalQuoteFontScale <= MIN_FONT_SCALE}
+              onClick={() => setGlobalQuoteFontScale(clampQuoteFontScale(globalQuoteFontScale - 0.1))}
+            >
+              −
+            </button>
+            <span className="layout-spacing-value" aria-live="polite">
+              {globalQuoteFontScale.toFixed(1)}x
+            </span>
+            <button
+              type="button"
+              className="layout-spacing-btn"
+              aria-label="Increase default card text size"
+              disabled={globalQuoteFontScale >= MAX_FONT_SCALE}
+              onClick={() => setGlobalQuoteFontScale(clampQuoteFontScale(globalQuoteFontScale + 0.1))}
             >
               +
             </button>

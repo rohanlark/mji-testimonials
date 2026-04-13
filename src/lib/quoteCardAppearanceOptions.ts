@@ -14,6 +14,11 @@ export const QUOTE_FONT_SCALE_OPTIONS: { value: QuoteFontScaleOverride; label: s
 export const MIN_FONT_SCALE = 0.8;
 export const MAX_FONT_SCALE = 4;
 export const FONT_SCALE_STEP = 0.1;
+export const DEFAULT_GLOBAL_QUOTE_FONT_SCALE = 1;
+
+export function clampQuoteFontScale(value: number): number {
+  return Number(Math.max(MIN_FONT_SCALE, Math.min(MAX_FONT_SCALE, value)).toFixed(1));
+}
 
 /**
  * Step type scale with linear increments (no wrap).
@@ -22,10 +27,10 @@ export const FONT_SCALE_STEP = 0.1;
  */
 export function stepQuoteFontScale(
   current: QuoteFontScaleOverride,
-  direction: -1 | 1
+  direction: -1 | 1,
+  baseScale: number = DEFAULT_GLOBAL_QUOTE_FONT_SCALE
 ): QuoteFontScaleOverride {
-  const base = current === 'auto' ? 1 : current;
+  const base = current === 'auto' ? clampQuoteFontScale(baseScale) : current;
   const raw = base + direction * FONT_SCALE_STEP;
-  const clamped = Math.max(MIN_FONT_SCALE, Math.min(MAX_FONT_SCALE, raw));
-  return Number(clamped.toFixed(1));
+  return clampQuoteFontScale(raw);
 }

@@ -1,4 +1,4 @@
-import { CSSProperties, useLayoutEffect, useRef, useState } from 'react';
+import { CSSProperties, useRef } from 'react';
 import type { RefObject } from 'react';
 import {
   Testimonial,
@@ -22,7 +22,6 @@ import { getCardThemeTokens } from '../lib/cardThemes';
 import { getDisplayedMetadataEntries } from '../lib/metadataNormalize';
 import { normalizeQuoteForLayout } from '../lib/quoteNormalize';
 import { lineHeightForQuoteScale } from '../lib/gridQuoteFontScale';
-import { AUTO_FIT_LINE_HEIGHT, measureAutoQuoteFontSizePx } from '../lib/fitGridQuoteFont';
 import { DEFAULT_CARD_PADDING_PX } from '../lib/layoutSpacing';
 import {
   computeSpannedCellsFromPointerDelta,
@@ -69,6 +68,7 @@ interface GridQuoteProps {
   metadataOrder: MetadataFieldKey[];
   onUpdateTestimonial?: (id: string, partial: Partial<Testimonial>) => void;
   fontScaleOverride?: QuoteFontScaleOverride;
+  globalQuoteFontScale?: number;
   onSelect?: () => void;
   isSelected?: boolean;
   /** Opens quote edit modal on double-click (grid and single-column layout). */
@@ -94,6 +94,7 @@ export function GridQuote({
   metadataOrder,
   onUpdateTestimonial,
   fontScaleOverride,
+  globalQuoteFontScale = 1,
   onSelect,
   isSelected,
   onRequestEdit,
@@ -106,49 +107,13 @@ export function GridQuote({
   const displayedMetadata = getDisplayedMetadataEntries(testimonial, metadataToggles, metadataOrder);
   const tokens = getCardThemeTokens(cardTheme);
 
-  const isAuto = fontScaleOverride === undefined || fontScaleOverride === 'auto';
-  const manualScale = isAuto ? 1 : fontScaleOverride;
-  const lineHeightCss = isAuto ? AUTO_FIT_LINE_HEIGHT : lineHeightForQuoteScale(manualScale);
+  const manualScale =
+    fontScaleOverride === undefined || fontScaleOverride === 'auto'
+      ? globalQuoteFontScale
+      : fontScaleOverride;
+  const lineHeightCss = lineHeightForQuoteScale(manualScale);
 
   const displayQuote = normalizeQuoteForLayout(testimonial.quote);
-  const metadataSig = displayedMetadata.map((e) => `${e.key}:${e.value}`).join('|');
-
-  const innerRef = useRef<HTMLDivElement>(null);
-  const textRef = useRef<HTMLDivElement>(null);
-  const [autoFontPx, setAutoFontPx] = useState<number | null>(null);
-
-  useLayoutEffect(() => {
-    const inner = innerRef.current;
-    const text = textRef.current;
-    if (!inner || !text) return;
-
-    let cancelled = false;
-    let ro: ResizeObserver | null = null;
-
-    const measure = () => {
-      if (cancelled) return;
-      const w = inner.clientWidth;
-      const h = inner.clientHeight;
-      const px = measureAutoQuoteFontSizePx(text, w, h, AUTO_FIT_LINE_HEIGHT);
-      setAutoFontPx(px);
-    };
-
-    const schedule = () => {
-      requestAnimationFrame(measure);
-    };
-
-    void document.fonts.ready.then(() => {
-      if (cancelled) return;
-      schedule();
-      ro = new ResizeObserver(schedule);
-      ro.observe(inner);
-    });
-
-    return () => {
-      cancelled = true;
-      ro?.disconnect();
-    };
-  }, [displayQuote, metadataSig, colSpan, rowSpan, testimonial.id, cardPaddingPx]);
 
   const resizeSessionRef = useRef<{
     pointerId: number;
@@ -195,16 +160,13 @@ export function GridQuote({
     fontWeight: tokens.quoteFontWeight,
     hyphens: quoteHyphenation ? 'auto' : 'none',
     WebkitHyphens: quoteHyphenation ? 'auto' : 'none',
-    ...(isAuto && autoFontPx != null
-      ? { fontSize: `${autoFontPx}px`, lineHeight: AUTO_FIT_LINE_HEIGHT }
-      : {}),
   };
 
   const stepScaleWithCap = (
     current: QuoteFontScaleOverride,
     direction: -1 | 1
   ): QuoteFontScaleOverride => {
-    return stepQuoteFontScale(current, direction);
+    return stepQuoteFontScale(current, direction, globalQuoteFontScale);
   };
 
   const startResizeDrag = (axis: GridResizeAxis) => (e: React.PointerEvent) => {
@@ -418,8 +380,8 @@ export function GridQuote({
             : undefined
         }
       >
-        <div className="grid-quote__inner" ref={innerRef}>
-          <div className="grid-quote__text" ref={textRef} lang="en-AU" style={textStyle}>
+        <div className="grid-quote__inner">
+          <div className="grid-quote__text" lang="en-AU" style={textStyle}>
             {displayQuote}
           </div>
         </div>

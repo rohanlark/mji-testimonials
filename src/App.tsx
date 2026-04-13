@@ -34,6 +34,14 @@ import {
   DEFAULT_LAYOUT_GAP_PX,
   DEFAULT_LAYOUT_MARGIN_PX,
 } from './lib/layoutSpacing';
+import { DEFAULT_GLOBAL_QUOTE_FONT_SCALE } from './lib/quoteCardAppearanceOptions';
+import {
+  listSavedSetups,
+  markSetupOpened,
+  saveSetup,
+  serializeProjectDocument,
+  type SavedSetupRecord,
+} from './lib/setupPersistence';
 import './App.css';
 
 function getAspectRatioNumber(ratio: Exclude<GridAspectRatio, 'fit'>, flipped: boolean): number {
@@ -71,9 +79,18 @@ function App() {
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
   const [layoutGapPx, setLayoutGapPx] = useState(DEFAULT_LAYOUT_GAP_PX);
   const [cardPaddingPx, setCardPaddingPx] = useState(DEFAULT_CARD_PADDING_PX);
+  const [globalQuoteFontScale, setGlobalQuoteFontScale] = useState(DEFAULT_GLOBAL_QUOTE_FONT_SCALE);
   const [mobileFallbackMode, setMobileFallbackMode] = useState<MobileFallbackMode>('swipe');
   const [swipeCardWidthPct, setSwipeCardWidthPct] = useState(78);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [openModalOpen, setOpenModalOpen] = useState(false);
+  const [saveName, setSaveName] = useState('');
+  const [saveDestination, setSaveDestination] = useState('web');
+  const [saveKeywords, setSaveKeywords] = useState('');
+  const [saveNotes, setSaveNotes] = useState('');
+  const [setupQuery, setSetupQuery] = useState('');
+  const [savedSetups, setSavedSetups] = useState<SavedSetupRecord[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewWrapperRef = useRef<HTMLDivElement>(null);
   const [fixedFrameSize, setFixedFrameSize] = useState<{ width: number; height: number } | null>(
@@ -82,6 +99,83 @@ function App() {
 
   const editingTestimonial =
     editingQuoteId !== null ? testimonials.find((t) => t.id === editingQuoteId) ?? null : null;
+
+  const refreshSavedSetups = useCallback(() => {
+    setSavedSetups(listSavedSetups());
+  }, []);
+
+  useEffect(() => {
+    refreshSavedSetups();
+  }, [refreshSavedSetups]);
+
+  const buildProjectDocument = useCallback(
+    () =>
+      serializeProjectDocument({
+        testimonials,
+        layoutMode,
+        metadataToggles,
+        metadataOrder,
+        gridSizeOverrides,
+        fontScaleOverrides,
+        gridAspectRatio,
+        gridAspectRatioFlipped,
+        gridDimensions,
+        showGridLines,
+        quoteHyphenation,
+        globalCardTheme,
+        cardSurfaceOverrides,
+        layoutGapPx,
+        cardPaddingPx,
+        globalQuoteFontScale,
+        mobileFallbackMode,
+        swipeCardWidthPct,
+      }),
+    [
+      testimonials,
+      layoutMode,
+      metadataToggles,
+      metadataOrder,
+      gridSizeOverrides,
+      fontScaleOverrides,
+      gridAspectRatio,
+      gridAspectRatioFlipped,
+      gridDimensions,
+      showGridLines,
+      quoteHyphenation,
+      globalCardTheme,
+      cardSurfaceOverrides,
+      layoutGapPx,
+      cardPaddingPx,
+      globalQuoteFontScale,
+      mobileFallbackMode,
+      swipeCardWidthPct,
+    ]
+  );
+
+  const applyProjectDocument = useCallback((record: SavedSetupRecord) => {
+    const project = record.project;
+    setTestimonials(project.testimonials);
+    setErrors([]);
+    setLayoutMode(project.layoutMode);
+    setMetadataToggles(project.metadataToggles);
+    setMetadataOrder(project.metadataOrder);
+    setGridSizeOverrides(project.gridSizeOverrides);
+    setFontScaleOverrides(project.fontScaleOverrides);
+    setGridAspectRatio(project.gridAspectRatio);
+    setGridAspectRatioFlipped(project.gridAspectRatioFlipped);
+    setGridDimensions(project.gridDimensions);
+    setShowGridLines(project.showGridLines);
+    setQuoteHyphenation(project.quoteHyphenation);
+    setGlobalCardTheme(project.globalCardTheme);
+    setCardSurfaceOverrides(project.cardSurfaceOverrides);
+    setSelectedQuoteId(null);
+    setEditingQuoteId(null);
+    setLayoutGapPx(project.layoutGapPx);
+    setCardPaddingPx(project.cardPaddingPx);
+    setGlobalQuoteFontScale(project.globalQuoteFontScale);
+    setMobileFallbackMode(project.mobileFallbackMode);
+    setSwipeCardWidthPct(project.swipeCardWidthPct);
+  }, []);
 
   useEffect(() => {
     if (!resetConfirmOpen) return;
@@ -111,6 +205,7 @@ function App() {
     setEditingQuoteId(null);
     setLayoutGapPx(DEFAULT_LAYOUT_GAP_PX);
     setCardPaddingPx(DEFAULT_CARD_PADDING_PX);
+    setGlobalQuoteFontScale(DEFAULT_GLOBAL_QUOTE_FONT_SCALE);
     setMobileFallbackMode('swipe');
     setSwipeCardWidthPct(78);
     setResetConfirmOpen(false);
@@ -124,6 +219,51 @@ function App() {
       resetAppState();
     }
   };
+
+  const handleOpenSaveModal = useCallback(() => {
+    const cardsTag = testimonials.length > 0 ? `n${testimonials.length}` : 'n0';
+    setSaveName(`${layoutMode}-${cardsTag}-${globalCardTheme}`);
+    setSaveDestination('web');
+    setSaveKeywords('');
+    setSaveNotes('');
+    setSaveModalOpen(true);
+  }, [testimonials.length, layoutMode, globalCardTheme]);
+
+  const handleSaveSetup = useCallback(() => {
+    if (!saveName.trim() || !saveDestination.trim()) {
+      alert('Name and destination are required.');
+      return;
+    }
+    saveSetup({
+      name: saveName,
+      destination: saveDestination,
+      keywords: saveKeywords.split(','),
+      notes: saveNotes,
+      project: buildProjectDocument(),
+    });
+    setSaveModalOpen(false);
+    refreshSavedSetups();
+    alert('Setup saved.');
+  }, [
+    saveName,
+    saveDestination,
+    saveKeywords,
+    saveNotes,
+    buildProjectDocument,
+    refreshSavedSetups,
+  ]);
+
+  const handleOpenSetup = useCallback(
+    (setupId: string) => {
+      const opened = markSetupOpened(setupId);
+      if (!opened) return;
+      applyProjectDocument(opened);
+      refreshSavedSetups();
+      setOpenModalOpen(false);
+      setSetupQuery('');
+    },
+    [applyProjectDocument, refreshSavedSetups]
+  );
 
   /** Hidden deck layouts: migrate to grid so users are not stuck on broken modes. */
   useEffect(() => {
@@ -313,7 +453,7 @@ function App() {
       : 0;
   const gridVacancyWarning =
     vacantCells > 0
-      ? `${vacantCells} empty grid cell${vacantCells === 1 ? '' : 's'} (first-fit packing can’t always tessellate). Reorder quotes or change cell sizes to reduce gaps.`
+      ? `${vacantCells} empty grid cell${vacantCells === 1 ? '' : 's'} (some size mixes can’t fully tessellate). Reorder quotes or change cell sizes to reduce gaps.`
       : '';
 
   const handleExportSVG = async () => {
@@ -326,6 +466,7 @@ function App() {
         metadataOrder,
         gridDimensions,
         fontScaleOverrides,
+        globalQuoteFontScale,
         globalCardTheme,
         cardSurfaceOverrides,
         {
@@ -348,12 +489,18 @@ function App() {
         gridDimensions,
         gridSizeOverrides,
         fontScaleOverrides,
+        globalQuoteFontScale,
         globalCardTheme,
         cardSurfaceOverrides,
+        metadataToggles,
+        metadataOrder,
         quoteHyphenation,
         layoutGapPx,
         DEFAULT_LAYOUT_MARGIN_PX,
-        cardPaddingPx
+        cardPaddingPx,
+        mobileFallbackMode,
+        swipeCardWidthPct,
+        'fragment'
       );
       await copyToClipboard(embedCode);
       alert('Embed code copied to clipboard!');
@@ -369,12 +516,18 @@ function App() {
       gridDimensions,
       gridSizeOverrides,
       fontScaleOverrides,
+      globalQuoteFontScale,
       globalCardTheme,
       cardSurfaceOverrides,
+      metadataToggles,
+      metadataOrder,
       quoteHyphenation,
       layoutGapPx,
       DEFAULT_LAYOUT_MARGIN_PX,
-      cardPaddingPx
+      cardPaddingPx,
+      mobileFallbackMode,
+      swipeCardWidthPct,
+      'document'
     );
     downloadFile(embedCode, 'testimonials.html', 'text/html');
   };
@@ -437,6 +590,7 @@ function App() {
                     gridDimensions={gridDimensions}
                     gridSizeOverrides={gridSizeOverrides}
                     fontScaleOverrides={fontScaleOverrides}
+                    globalQuoteFontScale={globalQuoteFontScale}
                     globalCardTheme={globalCardTheme}
                     cardSurfaceOverrides={cardSurfaceOverrides}
                     selectedQuoteId={selectedQuoteId}
@@ -494,8 +648,103 @@ function App() {
           <button type="button" className="empty-state-add-quote" onClick={handleAddQuote}>
             Add a single quote
           </button>
+          <button
+            type="button"
+            className="empty-state-open-setup"
+            onClick={() => setOpenModalOpen(true)}
+          >
+            Open saved setup
+          </button>
         </div>
       )}
+    </div>
+  );
+
+  const filteredSetups = savedSetups.filter((setup) => {
+    if (!setupQuery.trim()) return true;
+    const q = setupQuery.toLowerCase();
+    return (
+      setup.name.toLowerCase().includes(q) ||
+      setup.destination.toLowerCase().includes(q) ||
+      setup.keywords.some((k) => k.toLowerCase().includes(q))
+    );
+  });
+
+  const saveSetupModal = saveModalOpen && (
+    <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setSaveModalOpen(false)}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h2 className="modal-title">Save setup</h2>
+        <p className="modal-hint">Saves all content, order, card styles, and layout settings.</p>
+        <label className="save-setup-label">
+          Name *
+          <input className="quote-edit-input" value={saveName} onChange={(e) => setSaveName(e.target.value)} />
+        </label>
+        <label className="save-setup-label">
+          Destination *
+          <input
+            className="quote-edit-input"
+            value={saveDestination}
+            onChange={(e) => setSaveDestination(e.target.value)}
+          />
+        </label>
+        <label className="save-setup-label">
+          Keywords (comma separated)
+          <input
+            className="quote-edit-input"
+            value={saveKeywords}
+            onChange={(e) => setSaveKeywords(e.target.value)}
+          />
+        </label>
+        <label className="save-setup-label">
+          Notes
+          <textarea className="modal-textarea" value={saveNotes} onChange={(e) => setSaveNotes(e.target.value)} />
+        </label>
+        <div className="modal-actions">
+          <button type="button" className="modal-btn-secondary" onClick={() => setSaveModalOpen(false)}>
+            Cancel
+          </button>
+          <button type="button" className="modal-btn-primary" onClick={handleSaveSetup}>
+            Save setup
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const openSetupModal = openModalOpen && (
+    <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setOpenModalOpen(false)}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h2 className="modal-title">Open setup</h2>
+        <p className="modal-hint">Most recently opened first. Search by name, destination, or keyword.</p>
+        <input
+          className="quote-edit-input"
+          placeholder="Search setups"
+          value={setupQuery}
+          onChange={(e) => setSetupQuery(e.target.value)}
+        />
+        <div className="open-setup-list">
+          {filteredSetups.map((setup) => (
+            <button
+              key={setup.id}
+              type="button"
+              className="open-setup-item"
+              onClick={() => handleOpenSetup(setup.id)}
+            >
+              <span className="open-setup-name">{setup.name}</span>
+              <span className="open-setup-meta">
+                {setup.layoutTag}-{setup.cardsTag}-{setup.destination}-{setup.themeTag}
+              </span>
+              <span className="open-setup-meta">Opened {new Date(setup.lastOpenedAt).toLocaleString()}</span>
+            </button>
+          ))}
+          {filteredSetups.length === 0 ? <p className="sidebar-muted">No saved setups found.</p> : null}
+        </div>
+        <div className="modal-actions">
+          <button type="button" className="modal-btn-secondary" onClick={() => setOpenModalOpen(false)}>
+            Close
+          </button>
+        </div>
+      </div>
     </div>
   );
 
@@ -557,6 +806,21 @@ function App() {
           <button type="button" className="header-btn header-btn--secondary" onClick={loadSampleCSV}>
             Load sample CSV
           </button>
+          <button
+            type="button"
+            className="header-btn header-btn--secondary"
+            onClick={() => setOpenModalOpen(true)}
+          >
+            Open setup
+          </button>
+          <button
+            type="button"
+            className="header-btn header-btn--secondary"
+            onClick={handleOpenSaveModal}
+            disabled={testimonials.length === 0}
+          >
+            Save setup
+          </button>
           <button type="button" className="header-btn" onClick={() => fileInputRef.current?.click()}>
             Upload file
           </button>
@@ -564,6 +828,8 @@ function App() {
       </header>
 
       {resetConfirmModal}
+      {saveSetupModal}
+      {openSetupModal}
 
       <QuoteEditModal
         testimonial={editingTestimonial}
@@ -616,6 +882,8 @@ function App() {
             setLayoutGapPx={setLayoutGapPx}
             cardPaddingPx={cardPaddingPx}
             setCardPaddingPx={setCardPaddingPx}
+            globalQuoteFontScale={globalQuoteFontScale}
+            setGlobalQuoteFontScale={setGlobalQuoteFontScale}
             mobileFallbackMode={mobileFallbackMode}
             setMobileFallbackMode={setMobileFallbackMode}
             swipeCardWidthPct={swipeCardWidthPct}
